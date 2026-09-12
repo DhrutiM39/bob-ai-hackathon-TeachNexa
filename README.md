@@ -35,10 +35,10 @@ CourseGenie AI is an AI-powered professor assistant that transforms a course syl
 ## ✨ Key Features
 
 - **AI-Powered Course Generation:** Converts a syllabus into structured, topic-wise course content using AI.
-- - **Personalized Learning Content:** Generates clear explanations, study materials, examples, and learning resources for each topic.
-- - **AI Assessment Generator:** Automatically creates topic-wise quizzes, questions, and assessments to evaluate student understanding.
-- - **Smart Revision & Practice:** Provides revision resources, question banks, and practice material based on the course syllabus
-- - **Professor AI Assistant:** Reduces faculty preparation time by automating repetitive course-content and assessment creation.
+- **Personalized Learning Content:** Generates clear explanations, study materials, examples, and learning resources for each topic.
+- **AI Assessment Generator:** Automatically creates topic-wise quizzes, questions, and assessments to evaluate student understanding.
+- **Smart Revision & Practice:** Provides revision resources, question banks, and practice material based on the course syllabus
+- **Professor AI Assistant:** Reduces faculty preparation time by automating repetitive course-content and assessment creation.
 ---
 
 ## 🛠️ Tech Stack
