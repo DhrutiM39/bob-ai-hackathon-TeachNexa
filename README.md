@@ -1,4 +1,5 @@
-# 🚀 [Your Project Title Here]
+# 🚀**CourseGenie AI — An AI Professor Assistant: From Syllabus to Complete Course**
+
 
 > ⚠️ **Replace everything in `[ ]` brackets with your actual content before submission.**
 
@@ -8,8 +9,8 @@
 
 | Field | Value |
 |---|---|
-| **Team Name** | [Your Team Name] |
-| **Track** | [AI / DevOps / Sustainability / Open] |
+| **Team Name** | TeachNexa |
+| **Track** | AI|
 | **Team Lead** | [Name] — [email@ibm.com] |
 | **Members** | [Name 1], [Name 2], [Name 3] |
 
