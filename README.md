@@ -12,7 +12,7 @@
 | **Team Name** | TeachNexa |
 | **Track** | AI|
 | **Team Lead** | [Name] — [email@ibm.com] |
-| **Members** | [Name 1], [Name 2], [Name 3] |
+| **Members** | Riya Kalariya, Hardi Patel, Ishan Kachhadiya |
 
 ---
 
@@ -20,7 +20,8 @@
 
 > In 2–3 sentences: What problem does your project solve? Who experiences this problem?
 
-[Describe the real-world problem your project addresses. Be specific about who the user is and what pain point they face.]
+College professors and educators often spend significant time converting a syllabus into a complete, structured course with lectures, explanations, study materials, assessments, and revision resources. Students may receive fragmented or inconsistent learning content, while faculty struggle to provide personalized and continuously updated learning support within limited time and resources.
+
 
 ---
 
@@ -28,17 +29,18 @@
 
 > In 2–3 sentences: What did you build? How does it solve the problem above?
 
-[Describe your solution clearly. Explain the core mechanism — what makes it work.]
+CourseGenie AI is an AI-powered professor assistant that transforms a course syllabus into a complete, structured learning experience. It uses AI to generate organized course content such as topic explanations, lecture material, study resources, assessments, and revision support, helping professors reduce course preparation time and giving students a consistent learning journey.
+
 
 ---
 
 ## ✨ Key Features
 
-- **Feature 1:** [Brief description — e.g., "Real-time anomaly detection using watsonx.ai"]
-- **Feature 2:** [Brief description]
-- **Feature 3:** [Brief description]
-- **Feature 4:** [Optional]
-- **Feature 5:** [Optional]
+1. AI-Powered Course Generation: Converts a syllabus into structured, topic-wise course content using AI.
+2. Personalized Learning Content: Generates clear explanations, study materials, examples, and learning resources for each topic.
+3. AI Assessment Generator: Automatically creates topic-wise quizzes, questions, and assessments to evaluate student understanding.
+4. Smart Revision & Practice: Provides revision resources, question banks, and practice material based on the course syllabus.
+5. Professor AI Assistant: Reduces faculty preparation time by automating repetitive course-content and assessment creation.
 
 ---
 
