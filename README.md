@@ -18,7 +18,6 @@
 
 ## 🎯 Problem Statement
 
-> In 2–3 sentences: What problem does your project solve? Who experiences this problem?
 
 College professors and educators often spend significant time converting a syllabus into a complete, structured course with lectures, explanations, study materials, assessments, and revision resources. Students may receive fragmented or inconsistent learning content, while faculty struggle to provide personalized and continuously updated learning support within limited time and resources.
 
@@ -27,7 +26,6 @@ College professors and educators often spend significant time converting a sylla
 
 ## 💡 Solution
 
-> In 2–3 sentences: What did you build? How does it solve the problem above?
 
 CourseGenie AI is an AI-powered professor assistant that transforms a course syllabus into a complete, structured learning experience. It uses AI to generate organized course content such as topic explanations, lecture material, study resources, assessments, and revision support, helping professors reduce course preparation time and giving students a consistent learning journey.
 
@@ -48,11 +46,11 @@ CourseGenie AI is an AI-powered professor assistant that transforms a course syl
 
 | Category | Technologies |
 |---|---|
-| **Languages** | [e.g., Python, TypeScript] |
-| **Frameworks** | [e.g., FastAPI, React] |
-| **IBM Technologies** | [e.g., watsonx.ai, IBM Bob, IBM Cloud] |
-| **Databases** | [e.g., PostgreSQL, Redis] |
-| **Other** | [e.g., Docker, GitHub Actions] |
+| **Languages** | Python, JavaScript |
+| **Frameworks** | React, FastAPI |
+| **IBM Technologies** | IBM watsonx.ai, IBM Cloud |
+| **Databases** | PostgreSQL |
+| **Other** | Git, GitHub, REST APIs |
 
 ---
 
