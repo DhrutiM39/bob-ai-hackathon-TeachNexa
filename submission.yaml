@@ -9,51 +9,60 @@
 # =============================================================================
 
 team:
-  name: ""                             # REQUIRED — e.g., "Orion Squad"
-  track: ""                            # REQUIRED — one of: AI | DevOps | Sustainability | Open
+  name: "TeachNexa"                             # REQUIRED — e.g., "Orion Squad"
+  track: "AI"                            # REQUIRED — one of: AI | DevOps | Sustainability | Open
   lead:
-    name: ""                           # REQUIRED — e.g., "Alice Chen"
-    email: ""                          # REQUIRED — e.g., "alice.chen@ibm.com"
+    name: "Dhruti Movaliya"                           # REQUIRED — e.g., "Alice Chen"
+    email: "24dcs057@charusat.edu.in"                          # REQUIRED — e.g., "alice.chen@ibm.com"
   members:
-    - name: ""                         # REQUIRED — Team member 1
-      email: ""
-    - name: ""                         # Add more members by copying the two lines above
-      email: ""
-    - name: ""
-      email: ""
+    - name: "Riya kalariya"                         # REQUIRED — Team member 1
+      email: "24it037@charusat.edu.in"
+    - name: "Hardi Patel"                         # Add more members by copying the two lines above
+      email: "24dcs072@charusat.edu.in"
+    - name: "Ishan kachhadiya"
+      email: "24it034@charusat.edu.in"
 
 submission:
-  title: ""                            # REQUIRED — Project display name, e.g., "SmartOps Dashboard"
+  title: "CourseGenie AI — An AI Professor Assistant: From Syllabus to Complete Course"                            # REQUIRED — Project display name, e.g., "SmartOps Dashboard"
 
   problem_statement: >                 # REQUIRED — 1-3 sentences. What problem? Who has it?
-    Replace this text with a concise description of the real-world problem
-    your project addresses and who experiences it.
+    College professors and educators spend significant time converting a syllabus
+    into a complete, structured course with lectures, explanations, study
+    materials, assessments, and revision resources. Students may receive
+    fragmented or inconsistent learning content, while faculty struggle to
+    provide personalized and continuously updated learning support within
+    limited time and resources.
 
   solution_summary: >                  # REQUIRED — 1-3 sentences. What did you build?
-    Replace this text with a clear description of your solution
-    and how it addresses the problem above.
+     CourseGenie AI is an AI-powered professor assistant that transforms a course
+    syllabus into a complete, structured learning experience. It generates
+    organized course content including topic explanations, lecture material,
+    study resources, assessments, and revision support to reduce faculty
+    preparation time and provide students with a consistent learning journey.
 
   key_features:                        # REQUIRED — List 3 to 5 specific features you implemented
-    - ""                               # e.g., "Real-time pipeline anomaly detection using watsonx.ai"
-    - ""
-    - ""
-    - ""                               # optional 4th
-    - ""                               # optional 5th
+    - "AI-powered course generation from a syllabus"
+    - "Personalized topic-wise explanations, study materials, and examples"
+    - "AI-generated quizzes, questions, and assessments"
+    - "Smart revision resources, question banks, and practice material"
+    - "Professor AI assistant for automating course-content and assessment creation"                             # optional 5th
 
   tech_stack:
-    languages: []                      # REQUIRED — e.g., ["Python", "TypeScript"]
-    frameworks: []                     # e.g., ["FastAPI", "React"]
-    ibm_technologies: []               # e.g., ["watsonx.ai", "IBM Bob", "IBM Cloud Functions"]
-    databases: []                      # e.g., ["PostgreSQL", "Redis"]
-    other: []                          # e.g., ["Docker", "GitHub Actions", "Slack API"]
+    languages: ["Python", "JavaScript"]                      # REQUIRED — e.g., ["Python", "TypeScript"]
+    frameworks: ["React", "FastAPI"]                     # e.g., ["FastAPI", "React"]
+    ibm_technologies: ["IBM watsonx.ai", "IBM Cloud"]               # e.g., ["watsonx.ai", "IBM Bob", "IBM Cloud Functions"]
+    databases: ["PostgreSQL"]                      # e.g., ["PostgreSQL", "Redis"]
+    other: ["Git", "GitHub", "REST APIs"]                          # e.g., ["Docker", "GitHub Actions", "Slack API"]
 
   what_we_are_most_proud_of: >         # Optional but recommended — guides judges to your best work
-    Replace with what aspect of the submission you consider strongest
-    and want judges to pay special attention to.
+     We are most proud of building CourseGenie AI as a unified professor
+    assistant that connects syllabus-based course generation, personalized
+    learning content, assessment creation, and revision support in one platform.
 
   known_limitations: >                 # Optional but recommended — be honest about gaps
-    Replace with any known limitations, incomplete features,
-    or shortcuts taken due to time constraints.
+    The current implementation may have limitations in content coverage,
+    personalization depth, and production-level deployment depending on the
+    available development and testing time.
 
 # =============================================================================
 # ARTIFACT LOCATIONS
