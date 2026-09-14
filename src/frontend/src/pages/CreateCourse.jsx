@@ -3,12 +3,16 @@ import { useNavigate } from 'react-router-dom';
 import styles from './CreateCourse.module.css';
 import useGenerationStore from '../store/useGenerationStore.js';
 import { GENERATION_STAGES, ROUTES } from '../constants/index.js';
-import { analyzeSyllabus, generateCourse } from '../services/api/syllabusService.js';
+import { generateCourse } from '../services/api/syllabusService.js';
 import { adaptCourse } from '../services/adapters/courseAdapter.js';
 import FileUploader from '../components/syllabus/FileUploader.jsx';
 import GenerationProgress from '../components/syllabus/GenerationProgress.jsx';
 import Button from '../components/common/Button.jsx';
 import PageHeader from '../components/layout/PageHeader.jsx';
+
+// Demo owner_id — replaced by real auth when auth exists.
+// Seed one row first: see docs/setup-guide.md § "Seed a demo user".
+const DEMO_OWNER_ID = import.meta.env.VITE_DEMO_OWNER_ID || '00000000-0000-0000-0000-000000000001';
 
 const STAGE_IDS = GENERATION_STAGES.map((s) => s.id);
 
@@ -26,12 +30,10 @@ export default function CreateCourse() {
     return errs;
   };
 
-  const simulateStages = async (coursePayload) => {
-    // In production, the backend handles actual stage timing.
-    // We simulate progress updates here while awaiting the real API.
+  const runGeneration = async () => {
     store.startGeneration();
 
-    // If mocks are active, simulate stage advancement
+    // Mock path — fast fake loop for UI development
     if (import.meta.env.VITE_USE_MOCKS === 'true') {
       for (let i = 0; i < STAGE_IDS.length; i++) {
         store.advanceStage(STAGE_IDS[i]);
@@ -45,33 +47,28 @@ export default function CreateCourse() {
     }
 
     try {
-      // Stage 1: analyze
+      // Advance through UI stages while the single real call runs
       store.advanceStage('analyzing');
-      const analysisResult = await analyzeSyllabus({
-        text: store.syllabusText,
-        file: store.syllabusFile,
-      });
-
-      // Stage 2–3: modules & topics (simulate advancement while waiting)
+      await delay(300);
       store.advanceStage('modules');
-      await delay(400);
+      await delay(300);
       store.advanceStage('topics');
-
-      // Stage 4: generate course
+      await delay(300);
       store.advanceStage('organizing');
+
+      // Real API call — POST /api/v1/courses/generate
       const courseData = await generateCourse({
         title: store.courseTitle,
-        code: store.courseCode,
-        analysis: analysisResult,
+        syllabus_text: store.syllabusText,
+        owner_id: DEMO_OWNER_ID,
       });
 
-      // Stage 5: finalize
       store.advanceStage('content');
       await delay(400);
 
       const course = adaptCourse(courseData);
       store.finishGeneration(course.id);
-      await delay(800);
+      await delay(600);
       navigate(ROUTES.COURSE_OVERVIEW(course.id));
     } catch (err) {
       store.failGeneration(err.message || 'Generation failed. Please try again.');
@@ -86,7 +83,7 @@ export default function CreateCourse() {
       return;
     }
     setFormErrors({});
-    await simulateStages();
+    await runGeneration();
   };
 
   const handleRetry = () => {
@@ -115,7 +112,7 @@ export default function CreateCourse() {
     <div className={styles.page}>
       <PageHeader
         title="Create New Course"
-        subtitle="Paste your syllabus or upload a file and let IBM watsonx.ai build a complete structured course for you."
+        subtitle="Paste your syllabus or upload a file and let DeepSeek AI build a complete structured course for you."
       />
 
       {/* What AI does — explanation panel */}

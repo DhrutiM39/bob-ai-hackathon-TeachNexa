@@ -18,9 +18,14 @@ export async function analyzeSyllabus({ text, file }) {
 }
 
 /**
- * POST /api/course/generate
+ * POST /api/v1/courses/generate
+ * Sends { title, syllabus_text, owner_id } and returns the full course hierarchy.
  */
-export async function generateCourse(payload) {
-  const { data } = await client.post('/api/course/generate', payload);
+export async function generateCourse({ title, syllabus_text, owner_id }) {
+  const { data } = await client.post('/api/v1/courses/generate', {
+    title,
+    syllabus_text,
+    owner_id,
+  });
   return data;
 }

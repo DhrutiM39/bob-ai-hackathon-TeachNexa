@@ -1,14 +1,14 @@
 """
 POST /api/v1/courses/generate
 
-Accepts a validated syllabus, calls watsonx.ai to generate a structured
+Accepts a validated syllabus, calls DeepSeek to generate a structured
 module/topic outline, persists a Course + Modules + Topics to the database,
 and returns the full hierarchy.
 
 Design principles:
   - Route handler stays thin: validate → call service → persist → respond.
   - No SDK calls or SQL inside this file.
-  - WatsonxClient is injected via Depends() so it can be swapped in tests.
+  - DeepSeekClient is injected via Depends() so it can be swapped in tests.
 """
 
 from __future__ import annotations
@@ -26,7 +26,7 @@ from backend.app.schemas import (
     ModuleOut,
     TopicOut,
 )
-from backend.app.services.watsonx_client import WatsonxClient, get_watsonx_client
+from backend.app.services.deepseek_client import DeepSeekClient, get_deepseek_client
 from backend.database.models import Course, Module, Topic
 from backend.database.session import get_db
 
@@ -45,7 +45,7 @@ router = APIRouter(prefix="/api/v1/courses", tags=["courses"])
     status_code=status.HTTP_201_CREATED,
     summary="Generate a structured course from a syllabus",
     description=(
-        "Sends the provided syllabus to IBM watsonx.ai, which returns a "
+        "Sends the provided syllabus to DeepSeek, which returns a "
         "structured hierarchy of modules and topics. The result is persisted "
         "to the database and the full Course object is returned."
     ),
@@ -53,24 +53,24 @@ router = APIRouter(prefix="/api/v1/courses", tags=["courses"])
 def generate_course(
     body: GenerateCourseRequest,
     db: Session = Depends(get_db),
-    wx: WatsonxClient = Depends(get_watsonx_client),
+    ds: DeepSeekClient = Depends(get_deepseek_client),
 ) -> GenerateCourseResponse:
     """
-    1. Call watsonx.ai to parse the syllabus into modules/topics.
+    1. Call DeepSeek to parse the syllabus into modules/topics.
     2. Persist a Course row, then Module rows, then Topic rows.
     3. Return the full hierarchy as a GenerateCourseResponse.
     """
 
-    # ── 1. Generate structure via watsonx.ai ──────────────────────────────
+    # ── 1. Generate structure via DeepSeek ───────────────────────────────
     try:
-        raw_modules, model_used = wx.generate_course_structure(body.syllabus_text)
+        raw_modules, model_used = ds.generate_course_structure(body.syllabus_text)
     except ValueError as exc:
         raise HTTPException(
             status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
-            detail=f"watsonx.ai returned an invalid response: {exc}",
+            detail=f"DeepSeek returned an invalid response: {exc}",
         )
     except RuntimeError as exc:
-        logger.error("watsonx.ai call failed: %s", exc)
+        logger.error("DeepSeek call failed: %s", exc)
         raise HTTPException(
             status_code=status.HTTP_502_BAD_GATEWAY,
             detail=f"AI service unavailable: {exc}",

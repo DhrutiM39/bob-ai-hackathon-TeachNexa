@@ -14,8 +14,8 @@ alembic>=1.13.0              # migrations
 pydantic-settings>=2.6.0
 python-dotenv>=1.0.0
 
-# IBM watsonx.ai
-ibm-watsonx-ai>=1.0.0
+# AI provider
+openai>=1.40.0               # DeepSeek's OpenAI-compatible SDK
 
 # Testing
 pytest>=8.0.0

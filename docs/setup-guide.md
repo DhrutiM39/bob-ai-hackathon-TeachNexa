@@ -7,8 +7,9 @@
 Before you begin, ensure you have the following installed:
 
 - [ ] Python 3.11+
+- [ ] Node.js 18+ (for the frontend)
 - [ ] PostgreSQL 15+ (or Docker Desktop to run PostgreSQL in a container)
-- [ ] An IBM Cloud account with watsonx.ai access
+- [ ] A DeepSeek account — get a free API key at <https://platform.deepseek.com/api_keys>
 
 ---
 
@@ -23,12 +24,11 @@ cp src/.env.example src/.env
 | Variable | Description | Required |
 |---|---|---|
 | `DATABASE_URL` | PostgreSQL connection string — `postgresql://<user>:<password>@<host>:<port>/<dbname>` | Yes |
-| `WATSONX_API_KEY` | IBM watsonx.ai API key | Yes |
-| `WATSONX_PROJECT_ID` | watsonx.ai project ID | Yes |
-| `WATSONX_URL` | watsonx.ai regional endpoint | Yes |
+| `DEEPSEEK_API_KEY` | DeepSeek API key — get one at <https://platform.deepseek.com/api_keys> | Yes |
+| `DEEPSEEK_MODEL` | Model to use (default: `deepseek-chat`) | No |
 | `APP_PORT` | Port the API server listens on (default `8000`) | No |
 | `APP_ENV` | `development` or `production` — enables SQL echo in development | No |
-| `SLACK_WEBHOOK_URL` | Slack webhook for notifications | No |
+| `VITE_DEMO_OWNER_ID` | UUID of the demo user seeded in the DB (see "Seed a demo user" below) | No |
 
 ---
 
@@ -102,6 +102,32 @@ alembic -c src/backend/alembic.ini revision --autogenerate -m "describe your cha
 
 ---
 
+## Seed a demo user
+
+Until authentication is implemented, the frontend uses a fixed `DEMO_OWNER_ID`
+as the `owner_id` FK when calling `POST /api/v1/courses/generate`.
+Insert a matching row **once** after running migrations:
+
+```sql
+-- Run with: psql $DATABASE_URL
+INSERT INTO users (id, name, email, role)
+VALUES (
+  '00000000-0000-0000-0000-000000000001',
+  'Demo User',
+  'demo@coursegenie.ai',
+  'instructor'
+)
+ON CONFLICT (id) DO NOTHING;
+```
+
+Or as a one-liner from the shell:
+
+```bash
+psql "$DATABASE_URL" -c "INSERT INTO users (id, name, email, role) VALUES ('00000000-0000-0000-0000-000000000001', 'Demo User', 'demo@coursegenie.ai', 'instructor') ON CONFLICT (id) DO NOTHING;"
+```
+
+---
+
 ## Verifying the Database Connection
 
 ```bash
@@ -119,13 +145,29 @@ PY
 
 ## Running the Application
 
+### Backend
+
 ```bash
 # Start the FastAPI backend (from repository root)
-uvicorn backend.main:app --reload --port 8000 --app-dir src
+uvicorn backend.app.main:app --reload --port 8000 --app-dir src
 ```
 
-The API will be available at: `http://localhost:8000`  
+The API will be available at: `http://localhost:8000`
 Interactive docs: `http://localhost:8000/docs`
+
+### Frontend
+
+```bash
+# In a separate terminal, from the repository root:
+cd src/frontend
+npm install          # first time only
+npm run dev
+```
+
+The frontend will be available at: `http://localhost:3000`
+
+> **Tip:** The Vite dev server proxies `/api/*` requests to `http://localhost:8000`
+> by default (see `vite.config.js`). No `VITE_API_BASE_URL` is needed in dev.
 
 ---
 
@@ -134,35 +176,55 @@ Interactive docs: `http://localhost:8000/docs`
 Tests use an **in-memory SQLite** database — no live PostgreSQL required.
 
 ```bash
-# Run all database tests
-pytest
+# Run all tests with verbose output (from repository root)
+pytest -v
 
-# With coverage
-pytest --cov=src/backend/database
+# Run a single test file
+pytest src/backend/tests/test_generate_endpoint.py -v
 ```
+
+Expected output: all four test files pass — `test_database`, `test_generate_endpoint`,
+`test_health`, and `test_syllabus`.
 
 ---
 
-## Project Structure (Database Layer)
+## Project Structure (Backend)
 
 ```
 src/
   backend/
+    app/
+      api/
+        health.py       ← GET /health
+        syllabus.py     ← POST /api/v1/syllabus
+      routers/
+        courses.py      ← POST /api/v1/courses/generate
+      services/
+        deepseek_client.py  ← DeepSeek AI wrapper (OpenAI-compatible)
+        syllabus_service.py ← Syllabus processing logic
+      config.py         ← Settings (pydantic-settings; reads .env)
+      main.py           ← FastAPI app + router registration
     database/
-      __init__.py      ← public API (engine, Base, get_db, models)
-      connection.py    ← SQLAlchemy engine + Base + verify_connection()
-      models.py        ← ORM models: User, Course, Module, Topic, Content, Quiz, Question
-      session.py       ← SessionLocal factory + get_db() FastAPI dependency
+      connection.py     ← SQLAlchemy engine + Base + verify_connection()
+      models.py         ← ORM models: User, Course, Module, Topic, Content, Quiz, Question
+      session.py        ← SessionLocal factory + get_db() FastAPI dependency
     migrations/
-      env.py           ← Alembic environment (reads DATABASE_URL)
-      script.py.mako   ← migration file template
+      env.py            ← Alembic environment (reads DATABASE_URL)
       versions/
         0001_initial.py ← initial schema migration
     tests/
-      conftest.py      ← pytest fixtures (in-memory SQLite engine + scoped sessions)
-      test_database.py ← model creation, CRUD, relationship, constraint tests
-    requirements.txt   ← Python dependencies
-    alembic.ini        ← Alembic configuration
+      conftest.py       ← pytest fixtures (in-memory SQLite engine + scoped sessions)
+      test_database.py  ← model creation, CRUD, relationship, constraint tests
+      test_generate_endpoint.py ← DeepSeekClient unit + endpoint integration tests
+      test_health.py    ← GET /health tests
+      test_syllabus.py  ← POST /api/v1/syllabus tests
+    requirements.txt    ← Python dependencies
+    alembic.ini         ← Alembic configuration
+  frontend/
+    src/
+      pages/CreateCourse.jsx       ← Course creation form + generation progress
+      services/api/syllabusService.js ← generateCourse() → POST /api/v1/courses/generate
+      store/useGenerationStore.js  ← Zustand store for generation lifecycle
 ```
 
 ---
@@ -176,4 +238,5 @@ src/
 | `FATAL: password authentication failed` | Check `DATABASE_URL` in your `.env` matches the DB user/password |
 | `alembic: command not found` | Run `pip install alembic` or activate your virtual environment |
 | `target database is not up to date` | Run `alembic -c src/backend/alembic.ini upgrade head` |
-| watsonx.ai 401 error | Check `WATSONX_API_KEY` in your `.env` file |
+| DeepSeek 401 / AuthenticationError | Check `DEEPSEEK_API_KEY` in your `.env` file — get a key at <https://platform.deepseek.com/api_keys> |
+| `IntegrityError` on course generate — FK violation on `owner_id` | Run the "Seed a demo user" SQL snippet above |

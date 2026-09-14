@@ -31,7 +31,7 @@ app = FastAPI(
     description=(
         "AI-powered professor assistant that transforms a syllabus "
         "into a complete, structured learning experience. "
-        "Powered by IBM watsonx.ai and PostgreSQL."
+        "Powered by DeepSeek AI and PostgreSQL."
     ),
     docs_url="/docs",
     redoc_url="/redoc",
