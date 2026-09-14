@@ -26,7 +26,7 @@ from backend.app.config import Settings, get_settings
 logger = logging.getLogger(__name__)
 
 # ---------------------------------------------------------------------------
-# Prompt template
+# Prompt templates
 # ---------------------------------------------------------------------------
 _COURSE_STRUCTURE_PROMPT = """\
 You are an expert curriculum designer. Given the syllabus below, produce a \
@@ -59,6 +59,130 @@ Rules:
 
 SYLLABUS:
 {syllabus_text}
+"""
+
+_TOPIC_CONTENT_PROMPT = """\
+You are an expert professor creating rich learning content for university students.
+Given the topic title and description below, produce comprehensive learning material in JSON.
+
+Return ONLY a valid JSON object — no markdown, no explanation, no code fences.
+
+The JSON must have this exact shape:
+{{
+  "title": "<topic title>",
+  "objectives": ["<learning objective 1>", "<learning objective 2>", ...],
+  "explanation": "<detailed multi-paragraph explanation of the topic>",
+  "key_concepts": [
+    {{ "term": "<concept name>", "definition": "<clear one-sentence definition>" }}
+  ],
+  "examples": [
+    {{ "title": "<example title>", "content": "<detailed example explanation>" }}
+  ],
+  "summary": "<concise 2-3 sentence summary>",
+  "further_reading": ["<book or resource title>", ...]
+}}
+
+Rules:
+- Provide 3-5 learning objectives starting with action verbs (Understand, Explain, Apply, etc.).
+- The explanation must be at least 3 substantial paragraphs, written in clear academic prose.
+- Provide 4-6 key concepts.
+- Provide 2-3 concrete examples.
+- Provide 2-4 further reading suggestions.
+- Do NOT add extra keys.
+
+TOPIC TITLE: {topic_title}
+TOPIC DESCRIPTION: {topic_description}
+COURSE CONTEXT: {course_title}
+"""
+
+_QUIZ_PROMPT = """\
+You are an expert professor creating a multiple-choice quiz to assess student understanding.
+Given the topic below, produce 5 high-quality MCQ questions in JSON.
+
+Return ONLY a valid JSON object — no markdown, no explanation, no code fences.
+
+The JSON must have this exact shape:
+{{
+  "title": "<Quiz: topic title>",
+  "questions": [
+    {{
+      "id": "q1",
+      "text": "<question text>",
+      "options": [
+        {{"id": "0", "text": "<option A>"}},
+        {{"id": "1", "text": "<option B>"}},
+        {{"id": "2", "text": "<option C>"}},
+        {{"id": "3", "text": "<option D>"}}
+      ],
+      "correct_index": <0-3>,
+      "explanation": "<why the correct answer is correct>"
+    }}
+  ]
+}}
+
+Rules:
+- Produce exactly 5 questions with exactly 4 options each.
+- correct_index must be 0, 1, 2, or 3 (integer, not string).
+- Questions must vary in difficulty (2 easy, 2 medium, 1 hard).
+- Explanations must be clear and educational.
+- Do NOT add extra keys.
+
+TOPIC TITLE: {topic_title}
+TOPIC DESCRIPTION: {topic_description}
+COURSE CONTEXT: {course_title}
+"""
+
+_REVISION_PROMPT = """\
+You are an expert professor creating revision materials for a complete course.
+Given the course title and its modules/topics below, produce structured revision content in JSON.
+
+Return ONLY a valid JSON object — no markdown, no explanation, no code fences.
+
+The JSON must have this exact shape:
+{{
+  "quick_notes": ["<concise revision bullet 1>", ...],
+  "key_takeaways": ["<high-level insight 1>", ...],
+  "practice_questions": [
+    {{
+      "id": "pq1",
+      "text": "<question text>",
+      "options": [
+        {{"id": "0", "text": "<option>"}},
+        {{"id": "1", "text": "<option>"}},
+        {{"id": "2", "text": "<option>"}},
+        {{"id": "3", "text": "<option>"}}
+      ],
+      "correct_index": <0-3>,
+      "explanation": "<why correct>"
+    }}
+  ],
+  "question_bank": [
+    {{
+      "id": "bq1",
+      "text": "<question text>",
+      "options": [
+        {{"id": "0", "text": "<option>"}},
+        {{"id": "1", "text": "<option>"}},
+        {{"id": "2", "text": "<option>"}},
+        {{"id": "3", "text": "<option>"}}
+      ],
+      "correct_index": <0-3>,
+      "explanation": "<why correct>"
+    }}
+  ]
+}}
+
+Rules:
+- Provide 6-10 quick_notes (short, memorable bullets).
+- Provide 4-6 key_takeaways (big-picture insights).
+- Provide 3-5 practice_questions covering key topics.
+- Provide 5-8 question_bank items for deeper assessment.
+- All correct_index values must be integers 0-3.
+- Do NOT add extra keys.
+
+COURSE TITLE: {course_title}
+MODULES AND TOPICS:
+{modules_text}
 """
 
 
@@ -202,6 +326,124 @@ class DeepSeekClient:
 
         modules = self._validate_structure(data)
         return modules, model
+
+    def generate_topic_content(
+        self, topic_title: str, topic_description: str, course_title: str
+    ) -> tuple[dict, str]:
+        """
+        Generate rich learning content for a single topic.
+
+        Returns (content_dict, model_id).  content_dict keys:
+        title, objectives, explanation, key_concepts, examples, summary, further_reading.
+        """
+        prompt = _TOPIC_CONTENT_PROMPT.format(
+            topic_title=topic_title,
+            topic_description=topic_description or "",
+            course_title=course_title,
+        )
+        client = self._get_client()
+        model = self._settings.deepseek_model
+        try:
+            response = client.chat.completions.create(
+                model=model,
+                messages=[{"role": "user", "content": prompt}],
+                max_tokens=3000,
+                temperature=0.3,
+            )
+        except Exception as exc:
+            logger.exception("DeepSeek topic-content call failed")
+            raise RuntimeError(f"DeepSeek call failed: {exc}") from exc
+
+        raw_text: str = response.choices[0].message.content or ""
+        cleaned = self._extract_json(raw_text)
+        try:
+            data = json.loads(cleaned)
+        except json.JSONDecodeError as exc:
+            raise ValueError(
+                f"Model returned invalid JSON: {exc}\nRaw: {raw_text[:500]}"
+            ) from exc
+
+        if not isinstance(data, dict) or "explanation" not in data:
+            raise ValueError("Topic content response missing required 'explanation' key.")
+        return data, model
+
+    def generate_quiz(
+        self, topic_title: str, topic_description: str, course_title: str
+    ) -> tuple[dict, str]:
+        """
+        Generate a 5-question MCQ quiz for a topic.
+
+        Returns (quiz_dict, model_id).  quiz_dict keys: title, questions.
+        """
+        prompt = _QUIZ_PROMPT.format(
+            topic_title=topic_title,
+            topic_description=topic_description or "",
+            course_title=course_title,
+        )
+        client = self._get_client()
+        model = self._settings.deepseek_model
+        try:
+            response = client.chat.completions.create(
+                model=model,
+                messages=[{"role": "user", "content": prompt}],
+                max_tokens=2500,
+                temperature=0.2,
+            )
+        except Exception as exc:
+            logger.exception("DeepSeek quiz call failed")
+            raise RuntimeError(f"DeepSeek call failed: {exc}") from exc
+
+        raw_text: str = response.choices[0].message.content or ""
+        cleaned = self._extract_json(raw_text)
+        try:
+            data = json.loads(cleaned)
+        except json.JSONDecodeError as exc:
+            raise ValueError(
+                f"Model returned invalid JSON: {exc}\nRaw: {raw_text[:500]}"
+            ) from exc
+
+        if not isinstance(data, dict) or "questions" not in data:
+            raise ValueError("Quiz response missing required 'questions' key.")
+        return data, model
+
+    def generate_revision(
+        self, course_title: str, modules_summary: str
+    ) -> tuple[dict, str]:
+        """
+        Generate revision materials for a course.
+
+        Returns (revision_dict, model_id).
+        revision_dict keys: quick_notes, key_takeaways, practice_questions, question_bank.
+        """
+        prompt = _REVISION_PROMPT.format(
+            course_title=course_title,
+            modules_text=modules_summary,
+        )
+        client = self._get_client()
+        model = self._settings.deepseek_model
+        try:
+            response = client.chat.completions.create(
+                model=model,
+                messages=[{"role": "user", "content": prompt}],
+                max_tokens=3500,
+                temperature=0.3,
+            )
+        except Exception as exc:
+            logger.exception("DeepSeek revision call failed")
+            raise RuntimeError(f"DeepSeek call failed: {exc}") from exc
+
+        raw_text: str = response.choices[0].message.content or ""
+        cleaned = self._extract_json(raw_text)
+        try:
+            data = json.loads(cleaned)
+        except json.JSONDecodeError as exc:
+            raise ValueError(
+                f"Model returned invalid JSON: {exc}\nRaw: {raw_text[:500]}"
+            ) from exc
+
+        if not isinstance(data, dict) or "quick_notes" not in data:
+            raise ValueError("Revision response missing required 'quick_notes' key.")
+        return data, model
 
 
 # ---------------------------------------------------------------------------

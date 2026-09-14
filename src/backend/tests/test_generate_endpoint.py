@@ -292,6 +292,7 @@ class TestGenerateEndpoint:
         assert resp.status_code == 422
 
     def test_generate_returns_502_on_sdk_error(self, db_session):
+        owner_id = _insert_user(db_session)
         ds = DeepSeekClient(settings=_fake_settings())
         mock_openai = MagicMock()
         mock_openai.chat.completions.create.side_effect = Exception("network timeout")
@@ -302,12 +303,13 @@ class TestGenerateEndpoint:
             json={
                 "title": "Python Course",
                 "syllabus_text": "Week 1: Python basics. Week 2: Data types. Week 3: Functions.",
-                "owner_id": str(uuid.uuid4()),
+                "owner_id": owner_id,
             },
         )
         assert resp.status_code == 502
 
     def test_generate_returns_422_on_bad_model_json(self, db_session):
+        owner_id = _insert_user(db_session)
         ds = DeepSeekClient(settings=_fake_settings())
         mock_message = MagicMock()
         mock_message.content = "this is not json"
@@ -324,7 +326,7 @@ class TestGenerateEndpoint:
             json={
                 "title": "Python Course",
                 "syllabus_text": "Week 1: Python basics. Week 2: Data types. Week 3: Functions.",
-                "owner_id": str(uuid.uuid4()),
+                "owner_id": owner_id,
             },
         )
         assert resp.status_code == 422

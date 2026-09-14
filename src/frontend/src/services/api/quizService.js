@@ -17,10 +17,11 @@ export async function getQuiz(topicId) {
 }
 
 /**
- * POST /api/topics/:id/generate-revision
+ * POST /api/courses/:courseId/generate-revision
+ * Revision is generated at the course level, not per-topic.
  */
-export async function generateRevision(topicId) {
-  const { data } = await client.post(`/api/topics/${topicId}/generate-revision`);
+export async function generateRevision(courseId) {
+  const { data } = await client.post(`/api/courses/${courseId}/generate-revision`);
   return data;
 }
 
