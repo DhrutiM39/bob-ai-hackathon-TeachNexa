@@ -1,26 +1,25 @@
 import client from './client.js';
 
 /**
- * POST /api/syllabus/analyze
- * Accepts either a text body or a form-data file upload.
+ * POST /api/v1/syllabus
+ * Validate and register a raw syllabus submission.
+ * Returns { status, syllabus_id, course_name, syllabus_text, character_count, message }.
  */
-export async function analyzeSyllabus({ text, file }) {
-  if (file) {
-    const form = new FormData();
-    form.append('file', file);
-    const { data } = await client.post('/api/syllabus/analyze', form, {
-      headers: { 'Content-Type': 'multipart/form-data' },
-    });
-    return data;
-  }
-  const { data } = await client.post('/api/syllabus/analyze', { text });
+export async function submitSyllabus({ course_name, syllabus_text }) {
+  const { data } = await client.post('/api/v1/syllabus', { course_name, syllabus_text });
   return data;
 }
 
 /**
- * POST /api/course/generate
+ * POST /api/v1/courses/generate
+ * Matches GenerateCourseRequest: { title, syllabus_text, owner_id }
+ * Returns a full course object that courseAdapter can normalise.
  */
-export async function generateCourse(payload) {
-  const { data } = await client.post('/api/course/generate', payload);
+export async function generateCourse({ title, syllabus_text, owner_id = null }) {
+  const { data } = await client.post('/api/v1/courses/generate', {
+    title,
+    syllabus_text,
+    owner_id,
+  });
   return data;
 }

@@ -3,7 +3,7 @@ import { useNavigate } from 'react-router-dom';
 import styles from './CreateCourse.module.css';
 import useGenerationStore from '../store/useGenerationStore.js';
 import { GENERATION_STAGES, ROUTES } from '../constants/index.js';
-import { analyzeSyllabus, generateCourse } from '../services/api/syllabusService.js';
+import { generateCourse } from '../services/api/syllabusService.js';
 import { adaptCourse } from '../services/adapters/courseAdapter.js';
 import FileUploader from '../components/syllabus/FileUploader.jsx';
 import GenerationProgress from '../components/syllabus/GenerationProgress.jsx';
@@ -11,6 +11,10 @@ import Button from '../components/common/Button.jsx';
 import PageHeader from '../components/layout/PageHeader.jsx';
 
 const STAGE_IDS = GENERATION_STAGES.map((s) => s.id);
+
+// Approximate share of total generation time spent before/between stages.
+// These keep GenerationProgress animated while the single POST is in-flight.
+const STAGE_DELAYS_MS = [0, 1500, 1500, 1500, 1500];
 
 export default function CreateCourse() {
   const navigate = useNavigate();
@@ -26,12 +30,11 @@ export default function CreateCourse() {
     return errs;
   };
 
-  const simulateStages = async (coursePayload) => {
-    // In production, the backend handles actual stage timing.
-    // We simulate progress updates here while awaiting the real API.
+  const runGeneration = async () => {
     store.startGeneration();
 
-    // If mocks are active, simulate stage advancement
+    // DEV-ONLY mock path — set VITE_USE_MOCKS=true in .env.local to activate.
+    // The default (false) always hits the real API.
     if (import.meta.env.VITE_USE_MOCKS === 'true') {
       for (let i = 0; i < STAGE_IDS.length; i++) {
         store.advanceStage(STAGE_IDS[i]);
@@ -45,33 +48,34 @@ export default function CreateCourse() {
     }
 
     try {
-      // Stage 1: analyze
+      // Tick through early stages to animate the progress UI while we wait
+      // for the backend.  The real work is the single generateCourse() call.
       store.advanceStage('analyzing');
-      const analysisResult = await analyzeSyllabus({
-        text: store.syllabusText,
-        file: store.syllabusFile,
-      });
 
-      // Stage 2–3: modules & topics (simulate advancement while waiting)
-      store.advanceStage('modules');
-      await delay(400);
-      store.advanceStage('topics');
-
-      // Stage 4: generate course
-      store.advanceStage('organizing');
-      const courseData = await generateCourse({
+      // Fire the real API call — POST /api/v1/courses/generate
+      // GenerateCourseRequest: { title, syllabus_text, owner_id }
+      const generatePromise = generateCourse({
         title: store.courseTitle,
-        code: store.courseCode,
-        analysis: analysisResult,
+        syllabus_text: store.syllabusText,
+        owner_id: null,           // populated once auth is wired (future milestone)
       });
 
-      // Stage 5: finalize
+      // Advance through intermediate stages while the request is in-flight
+      await delay(STAGE_DELAYS_MS[1]);
+      store.advanceStage('modules');
+      await delay(STAGE_DELAYS_MS[2]);
+      store.advanceStage('topics');
+      await delay(STAGE_DELAYS_MS[3]);
+      store.advanceStage('organizing');
+      await delay(STAGE_DELAYS_MS[4]);
       store.advanceStage('content');
-      await delay(400);
+
+      // Await the real response
+      const courseData = await generatePromise;
 
       const course = adaptCourse(courseData);
       store.finishGeneration(course.id);
-      await delay(800);
+      await delay(600);
       navigate(ROUTES.COURSE_OVERVIEW(course.id));
     } catch (err) {
       store.failGeneration(err.message || 'Generation failed. Please try again.');
@@ -86,7 +90,7 @@ export default function CreateCourse() {
       return;
     }
     setFormErrors({});
-    await simulateStages();
+    await runGeneration();
   };
 
   const handleRetry = () => {
