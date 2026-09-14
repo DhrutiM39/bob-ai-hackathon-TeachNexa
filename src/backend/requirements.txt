@@ -1,35 +1,23 @@
-<<<<<<< HEAD
 # CourseGenie AI — backend dependencies
 # Install with: pip install -r src/backend/requirements.txt
 
 # Web framework
-fastapi>=0.111.0
-uvicorn[standard]>=0.29.0
+fastapi>=0.115.0
+uvicorn[standard]>=0.30.0
 
 # Database
 sqlalchemy>=2.0.0
 psycopg2-binary>=2.9.9       # PostgreSQL driver (binary wheel — easy install)
 alembic>=1.13.0              # migrations
 
-# Environment variables
+# Settings / environment
+pydantic-settings>=2.6.0
 python-dotenv>=1.0.0
 
-# Testing
-pytest>=8.0.0
-pytest-asyncio>=0.23.0
-=======
-# Backend dependencies for CourseGenie AI
-# Install with: python -m pip install -r requirements.txt
-
-# Web framework
-fastapi>=0.115.0
-uvicorn[standard]>=0.30.0
-
-# Configuration (reads .env files)
-pydantic-settings>=2.6.0
+# IBM watsonx.ai
+ibm-watsonx-ai>=1.0.0
 
 # Testing
 pytest>=8.0.0
-httpx>=0.27.0          # required by FastAPI TestClient
+httpx>=0.27.0                # required by FastAPI TestClient
 pytest-asyncio>=0.24.0
->>>>>>> feature/backend-hardi
