@@ -1,7 +1,7 @@
 .wrapper { display: flex; flex-direction: column; gap: var(--space-2); }
 
 .dropzone {
-  border: 2px dashed var(--color-border);
+  border: 2px dashed var(--color-border-strong);
   border-radius: var(--radius-lg);
   padding: var(--space-10) var(--space-6);
   display: flex;
@@ -11,21 +11,42 @@
   gap: var(--space-2);
   text-align: center;
   cursor: pointer;
-  transition: border-color var(--transition-fast), background-color var(--transition-fast);
+  transition:
+    border-color var(--transition-fast),
+    background-color var(--transition-fast),
+    box-shadow var(--transition-fast);
   background: var(--color-surface);
 }
-.dropzone:hover { border-color: var(--color-accent); background: var(--color-accent-light); }
-.dragOver { border-color: var(--color-accent); background: var(--color-accent-light); }
+.dropzone:hover, .dropzone:focus-visible {
+  border-color: var(--color-accent);
+  background: var(--color-accent-lighter);
+  box-shadow: var(--shadow-focus);
+  outline: none;
+}
+.dragOver {
+  border-color: var(--color-accent);
+  background: var(--color-accent-lighter);
+  box-shadow: var(--shadow-focus);
+}
 .disabled { opacity: 0.5; cursor: not-allowed; }
 
 .uploadIcon {
   font-size: 2rem;
   color: var(--color-text-muted);
   margin-bottom: var(--space-2);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 48px;
+  height: 48px;
+  background: var(--color-surface-2);
+  border-radius: var(--radius-xl);
+  font-size: 1.5rem;
+  border: 1px solid var(--color-border);
 }
 .primary {
   font-size: var(--text-sm);
-  font-weight: var(--font-medium);
+  font-weight: var(--font-semibold);
   color: var(--color-text-primary);
 }
 .secondary {
@@ -48,7 +69,7 @@
   gap: var(--space-3);
   padding: var(--space-3) var(--space-4);
   background: var(--color-success-light);
-  border: 1px solid #86efac;
+  border: 1px solid var(--color-success-border);
   border-radius: var(--radius-lg);
 }
 .fileIcon { font-size: var(--text-xl); }
@@ -70,6 +91,7 @@
   font-size: var(--text-xs);
   padding: var(--space-1);
   border-radius: var(--radius-sm);
+  transition: color var(--transition-fast);
 }
 .removeBtn:hover { color: var(--color-error); }
 

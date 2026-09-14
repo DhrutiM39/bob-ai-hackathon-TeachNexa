@@ -1,25 +1,46 @@
 .page { display: flex; flex-direction: column; gap: var(--space-10); }
 
+/* ── Welcome Hero ──────────────────────────────────────────── */
 .welcomeSection {
   display: flex;
   align-items: center;
   justify-content: space-between;
   gap: var(--space-8);
-  background: var(--color-surface);
-  border: 1px solid var(--color-border);
+  background: var(--gradient-hero);
+  border: 1px solid var(--color-accent-border);
   border-radius: var(--radius-2xl);
-  padding: var(--space-10) var(--space-10);
+  padding: var(--space-12) var(--space-12);
+  position: relative;
+  overflow: hidden;
 }
-.welcomeText { flex: 1; }
+
+/* Decorative radial glow */
+.welcomeSection::before {
+  content: '';
+  position: absolute;
+  top: -60px;
+  right: -60px;
+  width: 320px;
+  height: 320px;
+  background: radial-gradient(circle, rgba(91,80,232,0.12) 0%, transparent 70%);
+  pointer-events: none;
+}
+
+.welcomeText { flex: 1; position: relative; }
 .welcomeTitle {
   font-size: var(--text-4xl);
-  font-weight: var(--font-bold);
+  font-weight: var(--font-extrabold);
   color: var(--color-text-primary);
   line-height: var(--leading-tight);
-  letter-spacing: -0.02em;
-  margin-bottom: var(--space-3);
+  letter-spacing: var(--tracking-tight);
+  margin-bottom: var(--space-4);
 }
-.accent { color: var(--color-accent); }
+.accent {
+  background: var(--gradient-accent);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
+}
 .welcomeSubtitle {
   font-size: var(--text-lg);
   color: var(--color-text-secondary);
@@ -27,9 +48,10 @@
   max-width: 520px;
 }
 
+/* ── Feature Pills ─────────────────────────────────────────── */
 .featurePills {
   display: flex;
-  gap: var(--space-3);
+  gap: var(--space-2);
   flex-wrap: wrap;
 }
 .pill {
@@ -43,8 +65,15 @@
   border: 1px solid var(--color-border);
   padding: var(--space-2) var(--space-4);
   border-radius: var(--radius-full);
+  box-shadow: var(--shadow-xs);
+  transition: border-color var(--transition-fast), box-shadow var(--transition-fast);
+}
+.pill:hover {
+  border-color: var(--color-accent-border);
+  box-shadow: var(--shadow-sm);
 }
 
+/* ── Section header ────────────────────────────────────────── */
 .sectionHeader {
   display: flex;
   align-items: center;
@@ -55,33 +84,40 @@
   font-size: var(--text-xl);
   font-weight: var(--font-semibold);
   color: var(--color-text-primary);
+  letter-spacing: var(--tracking-snug);
 }
 
+/* ── Course Grid ────────────────────────────────────────────── */
 .grid {
   display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
+  grid-template-columns: repeat(auto-fill, minmax(310px, 1fr));
   gap: var(--space-5);
 }
 
 /* Skeleton card */
 .skeletonCard {
   background: var(--color-surface);
-  border: 1px solid var(--color-border);
   border-radius: var(--radius-xl);
-  padding: var(--space-6);
+  padding: var(--space-7);
   display: flex;
   flex-direction: column;
   gap: var(--space-3);
+  box-shadow: var(--shadow-card);
 }
 .mt2 { margin-top: var(--space-2); }
-.mt3 { margin-top: var(--space-4); }
+.mt3 { margin-top: var(--space-5); }
 
+@media (max-width: 960px) {
+  .welcomeSection { padding: var(--space-8); }
+}
 @media (max-width: 768px) {
   .welcomeSection {
     flex-direction: column;
-    padding: var(--space-6);
+    padding: var(--space-7) var(--space-6);
     text-align: center;
   }
-  .welcomeTitle { font-size: var(--text-2xl); }
+  .welcomeTitle { font-size: var(--text-3xl); }
+  .welcomeSubtitle { font-size: var(--text-base); }
   .featurePills { justify-content: center; }
+  .welcomeSection::before { display: none; }
 }

@@ -1,15 +1,24 @@
 .navbar {
   position: sticky;
   top: 0;
-  z-index: 100;
+  z-index: var(--z-navbar);
   height: var(--navbar-height);
-  background: var(--color-surface);
+  background: rgba(255,255,255,0.88);
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
   border-bottom: 1px solid var(--color-border);
   display: flex;
   align-items: center;
   padding: 0 var(--space-6);
   gap: var(--space-4);
+  transition: box-shadow var(--transition-base);
 }
+
+/* JS can add .scrolled to body, this is the CSS fallback */
+.navbar:has(+ *) {
+  box-shadow: var(--shadow-sm);
+}
+
 .left {
   display: flex;
   align-items: center;
@@ -36,12 +45,23 @@
   gap: var(--space-2);
   text-decoration: none;
 }
-.brandIcon { font-size: var(--text-xl); }
+.brandIcon {
+  width: 30px;
+  height: 30px;
+  background: var(--gradient-accent);
+  border-radius: var(--radius-md);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 15px;
+  flex-shrink: 0;
+  box-shadow: var(--shadow-accent);
+}
 .brandName {
   font-size: var(--text-base);
   font-weight: var(--font-bold);
   color: var(--color-text-primary);
-  letter-spacing: -0.01em;
+  letter-spacing: var(--tracking-snug);
 }
 
 /* Nav links */
@@ -70,9 +90,11 @@
   background: none;
   border: none;
   padding: var(--space-2);
-  border-radius: var(--radius-sm);
+  border-radius: var(--radius-md);
   color: var(--color-text-secondary);
+  transition: background-color var(--transition-fast);
 }
+.menuBtn:hover { background: var(--color-surface-2); }
 .menuIcon {
   display: flex;
   flex-direction: column;
@@ -84,20 +106,32 @@
   height: 2px;
   background: currentColor;
   border-radius: 2px;
+  transition: transform var(--transition-base), opacity var(--transition-fast);
 }
 
-/* Create button */
+/* Create button — premium gradient CTA */
 .createBtn {
-  background: var(--color-accent);
+  background: var(--gradient-cta);
   color: var(--color-text-inverse);
   border: none;
   border-radius: var(--radius-md);
-  padding: var(--space-2) var(--space-4);
+  padding: 0 var(--space-4);
+  height: 34px;
   font-size: var(--text-sm);
-  font-weight: var(--font-medium);
-  transition: background-color var(--transition-fast);
+  font-weight: var(--font-semibold);
+  letter-spacing: var(--tracking-snug);
+  box-shadow: var(--shadow-accent);
+  transition: opacity var(--transition-fast), transform var(--transition-fast), box-shadow var(--transition-fast);
 }
-.createBtn:hover { background: var(--color-accent-hover); }
+.createBtn:hover {
+  opacity: 0.92;
+  transform: translateY(-1px);
+  box-shadow: 0 6px 20px rgba(91,80,232,0.32);
+}
+.createBtn:active {
+  transform: translateY(0);
+  box-shadow: var(--shadow-accent);
+}
 
 @media (max-width: 768px) {
   .menuBtn { display: flex; }

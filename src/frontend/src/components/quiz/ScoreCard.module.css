@@ -2,23 +2,39 @@
   background: var(--color-surface);
   border: 1px solid var(--color-border);
   border-radius: var(--radius-2xl);
-  padding: var(--space-10) var(--space-8);
+  padding: var(--space-12) var(--space-10);
   text-align: center;
-  max-width: 420px;
+  max-width: 440px;
   margin: 0 auto;
   display: flex;
   flex-direction: column;
   align-items: center;
   gap: var(--space-4);
+  box-shadow: var(--shadow-lg);
+  animation: scoreEntrance 0.4s var(--transition-spring);
 }
-.passed { border-color: #86efac; }
-.failed { border-color: #fca5a5; }
+.passed { border-color: var(--color-success-border); }
+.failed { border-color: var(--color-error-border); }
 
-.icon { font-size: 3rem; }
+@keyframes scoreEntrance {
+  from { opacity: 0; transform: scale(0.93) translateY(12px); }
+  to   { opacity: 1; transform: scale(1) translateY(0); }
+}
+
+.icon {
+  font-size: 3rem;
+  animation: iconBounce 0.5s 0.3s var(--transition-spring) both;
+}
+@keyframes iconBounce {
+  from { transform: scale(0.5); opacity: 0; }
+  to   { transform: scale(1);   opacity: 1; }
+}
+
 .headline {
   font-size: var(--text-2xl);
-  font-weight: var(--font-bold);
+  font-weight: var(--font-extrabold);
   color: var(--color-text-primary);
+  letter-spacing: var(--tracking-tight);
 }
 .scoreDisplay {
   display: flex;
@@ -26,13 +42,16 @@
   gap: var(--space-2);
 }
 .scoreNum {
-  font-size: 4rem;
-  font-weight: var(--font-bold);
-  color: var(--color-accent);
+  font-size: var(--text-5xl);
+  font-weight: var(--font-extrabold);
+  background: var(--gradient-accent);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
   line-height: 1;
 }
-.scoreSep { font-size: var(--text-2xl); color: var(--color-text-muted); }
-.scoreTotal { font-size: var(--text-2xl); color: var(--color-text-muted); }
+.scoreSep  { font-size: var(--text-2xl); color: var(--color-text-muted); }
+.scoreTotal { font-size: var(--text-2xl); color: var(--color-text-muted); font-weight: var(--font-semibold); }
 .pct {
   font-size: var(--text-lg);
   font-weight: var(--font-semibold);

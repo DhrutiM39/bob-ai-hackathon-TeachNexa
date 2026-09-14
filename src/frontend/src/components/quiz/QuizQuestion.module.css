@@ -4,13 +4,14 @@
   margin: 0;
 }
 .question {
-  font-size: var(--text-lg);
+  font-size: var(--text-xl);
   font-weight: var(--font-semibold);
   color: var(--color-text-primary);
   line-height: var(--leading-snug);
-  margin-bottom: var(--space-6);
+  margin-bottom: var(--space-7);
   display: block;
   float: none;
+  letter-spacing: var(--tracking-snug);
 }
 .options {
   display: flex;
@@ -20,25 +21,37 @@
 .option {
   display: flex;
   align-items: flex-start;
-  gap: var(--space-3);
-  padding: var(--space-4);
-  border: 2px solid var(--color-border);
+  gap: var(--space-4);
+  padding: var(--space-4) var(--space-5);
+  border: 1.5px solid var(--color-border-strong);
   border-radius: var(--radius-lg);
   cursor: pointer;
-  transition: border-color var(--transition-fast), background-color var(--transition-fast);
+  transition:
+    border-color var(--transition-fast),
+    background-color var(--transition-fast),
+    box-shadow var(--transition-fast),
+    transform var(--transition-fast);
   background: var(--color-surface);
 }
-.option:hover { border-color: var(--color-accent-muted); background: var(--color-accent-light); }
-.selected { border-color: var(--color-accent); background: var(--color-accent-light); }
+.option:hover {
+  border-color: var(--color-accent-muted);
+  background: var(--color-accent-lighter);
+  transform: translateX(2px);
+}
+.selected {
+  border-color: var(--color-accent);
+  background: var(--color-accent-lighter);
+  box-shadow: 0 0 0 3px rgba(91,80,232,0.1);
+}
 
 .radio { position: absolute; opacity: 0; pointer-events: none; }
 
 .optionMarker {
-  width: 28px;
-  height: 28px;
+  width: 30px;
+  height: 30px;
   border-radius: 50%;
   background: var(--color-surface-2);
-  border: 1.5px solid var(--color-border);
+  border: 1.5px solid var(--color-border-strong);
   display: flex;
   align-items: center;
   justify-content: center;
@@ -46,16 +59,22 @@
   font-weight: var(--font-bold);
   flex-shrink: 0;
   color: var(--color-text-secondary);
-  transition: background-color var(--transition-fast), border-color var(--transition-fast), color var(--transition-fast);
+  transition:
+    background-color var(--transition-fast),
+    border-color var(--transition-fast),
+    color var(--transition-fast),
+    transform var(--transition-spring);
 }
 .selected .optionMarker {
-  background: var(--color-accent);
-  border-color: var(--color-accent);
+  background: var(--gradient-accent);
+  border-color: transparent;
   color: white;
+  transform: scale(1.08);
+  box-shadow: var(--shadow-accent);
 }
 .optionText {
   font-size: var(--text-base);
   color: var(--color-text-primary);
   line-height: var(--leading-relaxed);
-  padding-top: 3px;
+  padding-top: 4px;
 }

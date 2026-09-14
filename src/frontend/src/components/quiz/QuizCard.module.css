@@ -3,9 +3,16 @@
   border: 1px solid var(--color-border);
   border-radius: var(--radius-xl);
   padding: var(--space-6);
+  box-shadow: var(--shadow-card);
 }
-.correct { border-color: #86efac; background: var(--color-success-light); }
-.incorrect { border-color: #fca5a5; background: var(--color-error-light); }
+.correct {
+  border-color: var(--color-success-border);
+  background: var(--color-success-light);
+}
+.incorrect {
+  border-color: var(--color-error-border);
+  background: var(--color-error-light);
+}
 
 .questionText {
   font-size: var(--text-base);
@@ -13,6 +20,7 @@
   color: var(--color-text-primary);
   margin-bottom: var(--space-4);
   line-height: var(--leading-snug);
+  letter-spacing: var(--tracking-snug);
 }
 .options {
   list-style-type: upper-alpha;
@@ -28,9 +36,9 @@
   padding: var(--space-2) var(--space-3);
   border-radius: var(--radius-md);
 }
-.optSelected { background: var(--color-accent-light); color: var(--color-accent); font-weight: var(--font-medium); }
-.optCorrect { background: var(--color-success-light); color: var(--color-success); font-weight: var(--font-semibold); }
-.optWrong   { background: var(--color-error-light);   color: var(--color-error);   text-decoration: line-through; }
+.optSelected { background: var(--color-accent-light); color: var(--color-accent); font-weight: var(--font-semibold); }
+.optCorrect  { background: var(--color-success-light); color: var(--color-success); font-weight: var(--font-semibold); border: 1px solid var(--color-success-border); }
+.optWrong    { background: var(--color-error-light);   color: var(--color-error);   text-decoration: line-through; }
 
 .explanation {
   display: flex;
@@ -43,5 +51,5 @@
   margin-top: var(--space-3);
 }
 .expLabel { font-weight: var(--font-bold); flex-shrink: 0; }
-.expCorrect { background: #dcfce7; color: var(--color-success); }
-.expWrong   { background: #fee2e2; color: var(--color-error); }
+.expCorrect { background: var(--color-success-light); color: var(--color-success); border: 1px solid var(--color-success-border); }
+.expWrong   { background: var(--color-error-light);   color: var(--color-error);   border: 1px solid var(--color-error-border); }
