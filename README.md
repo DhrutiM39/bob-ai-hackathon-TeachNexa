@@ -11,7 +11,7 @@
 |---|---|
 | **Team Name** | TeachNexa |
 | **Track** | AI|
-| **Team Lead** | Dhruti Movaliya — [email@ibm.com] |
+| **Team Lead** | Dhruti Movaliya — 24dcs057@charusat.edu.in |
 | **Members** | Riya Kalariya, Hardi Patel, Ishan Kachhadiya |
 
 ---
