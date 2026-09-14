@@ -34,7 +34,7 @@ submission:
     limited time and resources.
 
   solution_summary: >                  # REQUIRED — 1-3 sentences. What did you build?
-     CourseGenie AI is an AI-powered professor assistant that transforms a course
+    CourseGenie AI is an AI-powered professor assistant that transforms a course
     syllabus into a complete, structured learning experience. It generates
     organized course content including topic explanations, lecture material,
     study resources, assessments, and revision support to reduce faculty
@@ -55,7 +55,7 @@ submission:
     other: ["Git", "GitHub", "REST APIs"]                          # e.g., ["Docker", "GitHub Actions", "Slack API"]
 
   what_we_are_most_proud_of: >         # Optional but recommended — guides judges to your best work
-     We are most proud of building CourseGenie AI as a unified professor
+    We are most proud of building CourseGenie AI as a unified professor
     assistant that connects syllabus-based course generation, personalized
     learning content, assessment creation, and revision support in one platform.
 
