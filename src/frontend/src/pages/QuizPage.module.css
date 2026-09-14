@@ -1,0 +1,80 @@
+.page { display: flex; flex-direction: column; gap: var(--space-6); }
+
+.quizContainer {
+  background: var(--color-surface);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-2xl);
+  padding: var(--space-8) var(--space-10);
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-7);
+  max-width: 740px;
+  box-shadow: var(--shadow-lg);
+}
+.quizHeader {
+  display: flex;
+  align-items: center;
+  gap: var(--space-4);
+}
+.qCounter {
+  font-size: var(--text-sm);
+  font-weight: var(--font-semibold);
+  color: var(--color-text-secondary);
+  white-space: nowrap;
+  flex-shrink: 0;
+  letter-spacing: var(--tracking-wide);
+}
+.qAnswered {
+  font-size: var(--text-xs);
+  color: var(--color-text-muted);
+  white-space: nowrap;
+  flex-shrink: 0;
+  font-weight: var(--font-medium);
+}
+.qProgress {
+  flex: 1;
+  display: flex;
+  gap: 4px;
+  flex-wrap: wrap;
+}
+.qDot {
+  height: 5px;
+  flex: 1;
+  min-width: 8px;
+  background: var(--color-surface-3);
+  border-radius: var(--radius-full);
+  transition: background-color var(--transition-base);
+}
+.qDotDone     { background: var(--color-success); }
+.qDotActive   { background: var(--gradient-accent); background: var(--color-accent); }
+.qDotAnswered { background: var(--color-accent-muted); }
+
+.questionWrap {
+  min-height: 280px;
+}
+.quizFooter {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-4);
+  padding-top: var(--space-5);
+  border-top: 1px solid var(--color-border-light);
+}
+.footerCenter { flex: 1; display: flex; justify-content: center; }
+
+/* Score section */
+.scoreSection { display: flex; flex-direction: column; gap: var(--space-10); }
+.reviewSection {}
+.reviewTitle {
+  font-size: var(--text-xl);
+  font-weight: var(--font-semibold);
+  color: var(--color-text-primary);
+  margin-bottom: var(--space-5);
+  letter-spacing: var(--tracking-snug);
+}
+.reviewList { display: flex; flex-direction: column; gap: var(--space-4); }
+
+@media (max-width: 600px) {
+  .quizContainer { padding: var(--space-5); gap: var(--space-5); }
+  .quizHeader { flex-wrap: wrap; }
+}

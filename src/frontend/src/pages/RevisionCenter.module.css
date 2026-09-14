@@ -1,0 +1,59 @@
+.page { display: flex; flex-direction: column; gap: var(--space-6); }
+
+.tabBar {
+  display: flex;
+  gap: 0;
+  border-bottom: 1.5px solid var(--color-border);
+}
+.tab {
+  padding: var(--space-3) var(--space-5);
+  background: none;
+  border: none;
+  border-bottom: 2px solid transparent;
+  margin-bottom: -1.5px;
+  font-size: var(--text-sm);
+  font-weight: var(--font-medium);
+  color: var(--color-text-secondary);
+  cursor: pointer;
+  transition: color var(--transition-fast), border-color var(--transition-fast);
+  white-space: nowrap;
+  letter-spacing: var(--tracking-snug);
+}
+.tab:hover { color: var(--color-text-primary); }
+.tabActive {
+  color: var(--color-accent);
+  border-bottom-color: var(--color-accent);
+  font-weight: var(--font-semibold);
+}
+.panel {
+  animation: fadeIn 0.15s ease;
+}
+@keyframes fadeIn {
+  from { opacity: 0; transform: translateY(4px); }
+  to   { opacity: 1; transform: none; }
+}
+
+.subheading {
+  font-size: var(--text-lg);
+  font-weight: var(--font-semibold);
+  color: var(--color-text-primary);
+  margin-bottom: var(--space-4);
+  letter-spacing: var(--tracking-snug);
+}
+.bankNote {
+  font-size: var(--text-sm);
+  color: var(--color-text-muted);
+  margin-bottom: var(--space-5);
+}
+.practiceList { display: flex; flex-direction: column; gap: var(--space-4); }
+.empty {
+  font-size: var(--text-sm);
+  color: var(--color-text-muted);
+  padding: var(--space-8);
+  text-align: center;
+}
+
+@media (max-width: 600px) {
+  .tabBar { overflow-x: auto; }
+  .tab { padding: var(--space-3); }
+}
