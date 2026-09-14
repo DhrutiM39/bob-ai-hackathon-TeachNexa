@@ -1,0 +1,102 @@
+.article {
+  max-width: var(--content-max-reading);
+}
+.prose { display: flex; flex-direction: column; gap: var(--space-4); }
+.para {
+  font-size: var(--text-base);
+  line-height: var(--leading-relaxed);
+  color: var(--color-text-secondary);
+}
+
+.objectiveList {
+  list-style: none;
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+}
+.objectiveItem {
+  display: flex;
+  align-items: flex-start;
+  gap: var(--space-3);
+  font-size: var(--text-base);
+  color: var(--color-text-secondary);
+  line-height: var(--leading-relaxed);
+}
+.objectiveItem::before {
+  content: '→';
+  color: var(--color-accent);
+  font-weight: var(--font-bold);
+  flex-shrink: 0;
+  margin-top: 1px;
+}
+
+.conceptList {
+  display: grid;
+  gap: var(--space-4);
+}
+.concept {
+  background: var(--color-surface-2);
+  border-left: 3px solid var(--color-accent);
+  padding: var(--space-3) var(--space-4);
+  border-radius: 0 var(--radius-md) var(--radius-md) 0;
+}
+.conceptTerm {
+  font-size: var(--text-base);
+  font-weight: var(--font-semibold);
+  color: var(--color-text-primary);
+  margin-bottom: var(--space-1);
+}
+.conceptDef {
+  font-size: var(--text-sm);
+  color: var(--color-text-secondary);
+  line-height: var(--leading-relaxed);
+  margin: 0;
+}
+
+.examples { display: flex; flex-direction: column; gap: var(--space-5); }
+.example {
+  background: var(--color-info-light);
+  border: 1px solid #93c5fd;
+  border-radius: var(--radius-lg);
+  padding: var(--space-4) var(--space-5);
+}
+.exampleTitle {
+  font-size: var(--text-sm);
+  font-weight: var(--font-semibold);
+  color: var(--color-info);
+  margin-bottom: var(--space-2);
+}
+.exampleContent {
+  font-size: var(--text-sm);
+  color: var(--color-text-secondary);
+  line-height: var(--leading-relaxed);
+  margin: 0;
+}
+
+.summary {
+  font-size: var(--text-base);
+  color: var(--color-text-secondary);
+  line-height: var(--leading-relaxed);
+  background: var(--color-surface-2);
+  padding: var(--space-4) var(--space-5);
+  border-radius: var(--radius-lg);
+  border-left: 3px solid var(--color-secondary);
+}
+
+.readingList {
+  list-style: none;
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+}
+.readingItem {
+  font-size: var(--text-sm);
+  color: var(--color-text-secondary);
+  padding: var(--space-2) var(--space-3);
+  background: var(--color-surface-2);
+  border-radius: var(--radius-md);
+}
+.readingItem::before {
+  content: '▸ ';
+  color: var(--color-accent);
+}

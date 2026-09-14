@@ -1,0 +1,105 @@
+.backdrop {
+  position: fixed;
+  inset: 0;
+  background: rgba(0,0,0,0.3);
+  z-index: 49;
+  display: none;
+}
+.sidebar {
+  position: fixed;
+  top: var(--navbar-height);
+  left: 0;
+  bottom: 0;
+  width: var(--sidebar-width);
+  background: var(--color-surface);
+  border-right: 1px solid var(--color-border);
+  overflow-y: auto;
+  padding: var(--space-4) var(--space-3);
+  z-index: 50;
+  transition: transform var(--transition-base);
+}
+
+.section {
+  margin-bottom: var(--space-6);
+}
+.sectionLabel {
+  font-size: var(--text-xs);
+  font-weight: var(--font-semibold);
+  color: var(--color-text-muted);
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  padding: 0 var(--space-3);
+  margin-bottom: var(--space-2);
+}
+
+.link {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+  padding: var(--space-2) var(--space-3);
+  border-radius: var(--radius-md);
+  font-size: var(--text-sm);
+  font-weight: var(--font-medium);
+  color: var(--color-text-secondary);
+  text-decoration: none;
+  transition: background-color var(--transition-fast), color var(--transition-fast);
+  margin-bottom: var(--space-1);
+}
+.link:hover { background: var(--color-surface-2); color: var(--color-text-primary); text-decoration: none; }
+.linkActive { background: var(--color-accent-light); color: var(--color-accent); }
+.linkIcon { font-size: var(--text-base); }
+
+.courseLink {
+  display: block;
+  padding: var(--space-2) var(--space-3);
+  border-radius: var(--radius-md);
+  text-decoration: none;
+  margin-bottom: var(--space-2);
+  transition: background-color var(--transition-fast);
+}
+.courseLink:hover { background: var(--color-surface-2); text-decoration: none; }
+.courseInfo {
+  display: flex;
+  align-items: baseline;
+  gap: var(--space-2);
+  margin-bottom: var(--space-1);
+}
+.courseName {
+  font-size: var(--text-sm);
+  font-weight: var(--font-medium);
+  color: var(--color-text-primary);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  flex: 1;
+}
+.courseCode {
+  font-size: var(--text-xs);
+  color: var(--color-text-muted);
+  flex-shrink: 0;
+}
+.progressBar {
+  height: 3px;
+  background: var(--color-border);
+  border-radius: var(--radius-full);
+  overflow: hidden;
+}
+.progressFill {
+  height: 100%;
+  background: var(--color-accent);
+  border-radius: var(--radius-full);
+  transition: width var(--transition-slow);
+}
+
+/* Desktop: always visible */
+@media (min-width: 769px) {
+  .sidebar { transform: none !important; }
+  .backdrop { display: none !important; }
+}
+
+/* Mobile: hidden by default, open on toggle */
+@media (max-width: 768px) {
+  .sidebar { transform: translateX(-100%); }
+  .open { transform: translateX(0); }
+  .open ~ .backdrop, .backdrop { display: block; }
+}

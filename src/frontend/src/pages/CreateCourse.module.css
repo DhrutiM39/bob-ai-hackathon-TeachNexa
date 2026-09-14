@@ -1,0 +1,159 @@
+.page { display: flex; flex-direction: column; gap: var(--space-8); }
+.retryRow { display: flex; justify-content: center; margin-top: var(--space-6); }
+
+/* AI Explanation panel */
+.aiExplanation {
+  background: var(--color-accent-light);
+  border: 1px solid var(--color-accent-muted);
+  border-radius: var(--radius-xl);
+  padding: var(--space-6);
+}
+.aiTitle {
+  font-size: var(--text-base);
+  font-weight: var(--font-semibold);
+  color: var(--color-accent);
+  margin-bottom: var(--space-4);
+}
+.aiSteps {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
+  gap: var(--space-4);
+}
+.aiStep {
+  display: flex;
+  align-items: flex-start;
+  gap: var(--space-3);
+}
+.aiStepIcon { font-size: var(--text-xl); flex-shrink: 0; }
+.aiStepLabel {
+  font-size: var(--text-sm);
+  font-weight: var(--font-semibold);
+  color: var(--color-text-primary);
+  margin-bottom: 2px;
+}
+.aiStepDesc {
+  font-size: var(--text-xs);
+  color: var(--color-text-secondary);
+  line-height: var(--leading-relaxed);
+}
+
+/* Form */
+.form {
+  background: var(--color-surface);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-xl);
+  padding: var(--space-8);
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-6);
+}
+.formGrid {
+  display: grid;
+  grid-template-columns: 2fr 1fr;
+  gap: var(--space-5);
+}
+.formField { display: flex; flex-direction: column; gap: var(--space-2); }
+.label {
+  font-size: var(--text-sm);
+  font-weight: var(--font-medium);
+  color: var(--color-text-primary);
+}
+.required { color: var(--color-error); }
+.optional { font-size: var(--text-xs); color: var(--color-text-muted); font-weight: normal; }
+.input {
+  height: 42px;
+  padding: 0 var(--space-4);
+  border: 1.5px solid var(--color-border);
+  border-radius: var(--radius-md);
+  font-size: var(--text-sm);
+  font-family: var(--font-family);
+  color: var(--color-text-primary);
+  background: var(--color-surface);
+  transition: border-color var(--transition-fast);
+  width: 100%;
+}
+.input:focus { outline: none; border-color: var(--color-accent); }
+.inputError { border-color: var(--color-error); }
+.fieldError {
+  font-size: var(--text-xs);
+  color: var(--color-error);
+  margin-top: var(--space-1);
+}
+
+.syllabusSection {}
+.syllabusFieldset { border: none; padding: 0; margin: 0; }
+.legendLabel {
+  font-size: var(--text-sm);
+  font-weight: var(--font-medium);
+  color: var(--color-text-primary);
+  margin-bottom: var(--space-4);
+  display: block;
+}
+.syllabusOptions {
+  display: grid;
+  grid-template-columns: 1fr auto 1fr;
+  gap: var(--space-6);
+  align-items: start;
+}
+.syllabusOption { display: flex; flex-direction: column; gap: var(--space-2); }
+.optionLabel {
+  font-size: var(--text-sm);
+  font-weight: var(--font-medium);
+  color: var(--color-text-secondary);
+}
+.textarea {
+  width: 100%;
+  padding: var(--space-3) var(--space-4);
+  border: 1.5px solid var(--color-border);
+  border-radius: var(--radius-md);
+  font-size: var(--text-sm);
+  font-family: var(--font-family);
+  color: var(--color-text-primary);
+  background: var(--color-surface);
+  resize: vertical;
+  transition: border-color var(--transition-fast);
+  line-height: var(--leading-relaxed);
+}
+.textarea:focus { outline: none; border-color: var(--color-accent); }
+.orDivider {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding-top: var(--space-8);
+}
+.orDivider span {
+  font-size: var(--text-xs);
+  color: var(--color-text-muted);
+  background: var(--color-surface);
+  padding: var(--space-2);
+  border: 1px solid var(--color-border);
+  border-radius: 50%;
+  width: 32px;
+  height: 32px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.submitRow {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-6);
+  padding-top: var(--space-4);
+  border-top: 1px solid var(--color-border);
+}
+.submitNote {
+  font-size: var(--text-xs);
+  color: var(--color-text-muted);
+}
+
+@media (max-width: 768px) {
+  .formGrid { grid-template-columns: 1fr; }
+  .syllabusOptions { grid-template-columns: 1fr; }
+  .orDivider { flex-direction: row; padding: 0; }
+  .orDivider span { width: 40px; }
+  .submitRow { flex-direction: column; align-items: flex-end; }
+  .form { padding: var(--space-5); }
+}

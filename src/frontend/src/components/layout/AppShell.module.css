@@ -1,0 +1,36 @@
+.shell {
+  min-height: 100vh;
+  display: flex;
+  flex-direction: column;
+}
+.body {
+  display: flex;
+  flex: 1;
+  min-height: 0;
+}
+.main {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  margin-left: var(--sidebar-width);
+}
+.content {
+  flex: 1;
+  padding: var(--space-8) var(--space-8);
+  max-width: var(--content-max-width);
+  width: 100%;
+}
+.mockBanner {
+  background: var(--color-warning-light);
+  border-bottom: 1px solid #fcd34d;
+  padding: var(--space-2) var(--space-8);
+  font-size: var(--text-sm);
+  color: var(--color-warning);
+  font-weight: var(--font-medium);
+}
+
+@media (max-width: 768px) {
+  .main { margin-left: 0; }
+  .content { padding: var(--space-4); }
+}
