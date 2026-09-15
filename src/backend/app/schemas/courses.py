@@ -1,9 +1,12 @@
 """
-Pydantic schemas for the course retrieval and generation APIs.
+Pydantic schemas for the course retrieval, generation, and edit APIs.
 
-GET  /api/courses         → list[CourseListItem]
-GET  /api/courses/{id}    → CourseDetail
-POST /api/v1/courses/generate → GenerateCourseResponse  (see generate.py)
+GET   /api/courses          → list[CourseListItem]
+GET   /api/courses/{id}     → CourseDetail
+POST  /api/v1/courses/generate → GenerateCourseResponse  (see generate.py)
+PATCH /api/courses/{id}     → CourseDetail
+PATCH /api/modules/{id}     → ModuleOut
+PATCH /api/topics/{id}      → TopicOut
 """
 
 from __future__ import annotations
@@ -100,3 +103,25 @@ class CourseDetail(BaseModel):
     completed_topics: int = 0
 
     model_config = {"from_attributes": True}
+
+
+# ─────────────────────────────────────────────────────────────────────────────
+# Edit request schemas  (PATCH endpoints)
+# ─────────────────────────────────────────────────────────────────────────────
+
+class CourseUpdate(BaseModel):
+    """Body for PATCH /api/courses/{course_id}. All fields optional."""
+    title: str | None = Field(default=None, min_length=1, max_length=500)
+    description: str | None = Field(default=None, max_length=2000)
+
+
+class ModuleUpdate(BaseModel):
+    """Body for PATCH /api/modules/{module_id}. All fields optional."""
+    title: str | None = Field(default=None, min_length=1, max_length=500)
+    description: str | None = Field(default=None, max_length=2000)
+
+
+class TopicUpdate(BaseModel):
+    """Body for PATCH /api/topics/{topic_id}. All fields optional."""
+    title: str | None = Field(default=None, min_length=1, max_length=500)
+    description: str | None = Field(default=None, max_length=2000)

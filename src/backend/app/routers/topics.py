@@ -31,13 +31,16 @@ from sqlalchemy.orm import Session, joinedload
 from backend.app.schemas import (
     ContentExample,
     KeyConcept,
+    ModuleUpdate,
     QuizOption,
     QuizQuestion,
     QuizResponse,
     RevisionQuestion,
     RevisionResponse,
     TopicContentResponse,
+    TopicUpdate,
 )
+from backend.app.schemas.courses import ModuleOut, TopicOut
 from backend.app.services.deepseek_client import DeepSeekClient, get_deepseek_client
 from backend.database.models import Content, Course, Module, Quiz, Question, Topic
 from backend.database.session import get_db
@@ -555,3 +558,114 @@ def get_course_revision(
         )
     cid = uuid.UUID(course_id)
     return _revision_content_to_response(revision_content, cid)
+
+
+# ─────────────────────────────────────────────────────────────────────────────
+# PATCH /api/modules/{module_id}
+# ─────────────────────────────────────────────────────────────────────────────
+
+@router.patch(
+    "/api/modules/{module_id}",
+    response_model=ModuleOut,
+    status_code=status.HTTP_200_OK,
+    summary="Update module metadata (title / description)",
+    responses={
+        400: {"description": "Invalid module ID."},
+        404: {"description": "Module not found."},
+    },
+)
+def update_module(
+    module_id: str,
+    body: ModuleUpdate,
+    db: Session = Depends(get_db),
+) -> ModuleOut:
+    """Partial update of a module's title and/or description."""
+    try:
+        mid = uuid.UUID(module_id)
+    except (ValueError, AttributeError):
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=f"'{module_id}' is not a valid module ID.",
+        )
+
+    module = db.query(Module).filter(Module.id == mid).first()
+    if module is None:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail=f"Module '{module_id}' not found.",
+        )
+
+    if body.title is not None:
+        module.title = body.title.strip()
+    if body.description is not None:
+        module.description = body.description.strip() or None
+
+    db.flush()
+    logger.info("Updated module '%s' (%s)", module.title, module.id)
+
+    # Reload topics for the response
+    topics_out = [
+        TopicOut(
+            id=t.id,
+            title=t.title,
+            description=t.description,
+            order_no=t.order_no,
+            has_content=bool(t.content_items),
+            has_quiz=bool(t.quizzes),
+        )
+        for t in sorted(
+            db.query(Topic).filter(Topic.module_id == module.id).all(),
+            key=lambda t: t.order_no,
+        )
+    ]
+    return ModuleOut(
+        id=module.id,
+        title=module.title,
+        description=module.description,
+        order_no=module.order_no,
+        topics=topics_out,
+    )
+
+
+# ─────────────────────────────────────────────────────────────────────────────
+# PATCH /api/topics/{topic_id}
+# ─────────────────────────────────────────────────────────────────────────────
+
+@router.patch(
+    "/api/topics/{topic_id}",
+    response_model=TopicOut,
+    status_code=status.HTTP_200_OK,
+    summary="Update topic metadata (title / description)",
+    responses={
+        400: {"description": "Invalid topic ID."},
+        404: {"description": "Topic not found."},
+    },
+)
+def update_topic(
+    topic_id: str,
+    body: TopicUpdate,
+    db: Session = Depends(get_db),
+) -> TopicOut:
+    """Partial update of a topic's title and/or description."""
+    topic = _get_topic_or_404(db, topic_id)
+
+    if body.title is not None:
+        topic.title = body.title.strip()
+    if body.description is not None:
+        topic.description = body.description.strip() or None
+
+    db.flush()
+    logger.info("Updated topic '%s' (%s)", topic.title, topic.id)
+
+    return TopicOut(
+        id=topic.id,
+        title=topic.title,
+        description=topic.description,
+        order_no=topic.order_no,
+        has_content=bool(
+            db.query(Content).filter(Content.topic_id == topic.id).first()
+        ),
+        has_quiz=bool(
+            db.query(Quiz).filter(Quiz.topic_id == topic.id).first()
+        ),
+    )

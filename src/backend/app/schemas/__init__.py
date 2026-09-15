@@ -15,11 +15,14 @@ from .generate import (
     ErrorResponse,
 )
 
-# Course retrieval schemas (GET /api/courses, GET /api/courses/{id})
+# Course retrieval + edit schemas
 from .courses import (
     CourseListItem,
     CourseDetail,
     CoursesListResponse,
+    CourseUpdate,
+    ModuleUpdate,
+    TopicUpdate,
 )
 
 # Topic content / quiz / revision schemas
@@ -46,6 +49,9 @@ __all__ = [
     "CourseListItem",
     "CourseDetail",
     "CoursesListResponse",
+    "CourseUpdate",
+    "ModuleUpdate",
+    "TopicUpdate",
     "KeyConcept",
     "ContentExample",
     "TopicContentResponse",

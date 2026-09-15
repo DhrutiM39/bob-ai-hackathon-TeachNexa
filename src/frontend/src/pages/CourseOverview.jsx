@@ -1,12 +1,13 @@
-import React from 'react';
+import React, { useState } from 'react';
 import { Link, useParams, useNavigate } from 'react-router-dom';
 import styles from './CourseOverview.module.css';
-import { useCourse } from '../hooks/useCourses.js';
+import { useCourse, useUpdateCourse } from '../hooks/useCourses.js';
 import { ROUTES } from '../constants/index.js';
 import { computeProgress, pluralize } from '../utils/index.js';
 import ModuleCard from '../components/course/ModuleCard.jsx';
 import CourseProgress from '../components/course/CourseProgress.jsx';
 import Button from '../components/common/Button.jsx';
+import Modal from '../components/common/Modal.jsx';
 import LoadingState from '../components/common/LoadingState.jsx';
 import ErrorState from '../components/common/ErrorState.jsx';
 import EmptyState from '../components/common/EmptyState.jsx';
@@ -26,6 +27,31 @@ export default function CourseOverview() {
   const { courseId } = useParams();
   const navigate = useNavigate();
   const { data: course, isLoading, isError, error, refetch } = useCourse(courseId);
+  const updateCourse = useUpdateCourse(courseId);
+
+  const [editOpen, setEditOpen] = useState(false);
+  const [editTitle, setEditTitle] = useState('');
+  const [editDesc, setEditDesc] = useState('');
+  const [editError, setEditError] = useState('');
+
+  const openEdit = () => {
+    setEditTitle(course.title ?? '');
+    setEditDesc(course.description ?? '');
+    setEditError('');
+    setEditOpen(true);
+  };
+
+  const handleSave = () => {
+    const trimmed = editTitle.trim();
+    if (!trimmed) { setEditError('Title is required.'); return; }
+    updateCourse.mutate(
+      { title: trimmed, description: editDesc.trim() || null },
+      {
+        onSuccess: () => setEditOpen(false),
+        onError: (err) => setEditError(err.message || 'Save failed.'),
+      },
+    );
+  };
 
   if (isLoading) return <CourseSkeleton />;
   if (isError) return <ErrorState title="Couldn't load course" message={error?.message} onRetry={refetch} />;
@@ -46,9 +72,14 @@ export default function CourseOverview() {
           </>
         }
         actions={
-          <Button variant="secondary" size="sm" onClick={() => navigate(ROUTES.REVISION(courseId))}>
-            Revision Center
-          </Button>
+          <div style={{ display: 'flex', gap: 'var(--space-2)' }}>
+            <Button variant="ghost" size="sm" onClick={openEdit} aria-label="Edit course">
+              ✎ Edit
+            </Button>
+            <Button variant="secondary" size="sm" onClick={() => navigate(ROUTES.REVISION(courseId))}>
+              Revision Center
+            </Button>
+          </div>
         }
       />
 
@@ -85,6 +116,61 @@ export default function CourseOverview() {
           ))
         )}
       </section>
+
+      {/* Edit course modal */}
+      <Modal
+        isOpen={editOpen}
+        onClose={() => setEditOpen(false)}
+        title="Edit Course"
+        footer={
+          <>
+            <Button variant="secondary" onClick={() => setEditOpen(false)} disabled={updateCourse.isPending}>
+              Cancel
+            </Button>
+            <Button variant="primary" onClick={handleSave} loading={updateCourse.isPending}>
+              Save
+            </Button>
+          </>
+        }
+      >
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-4)' }}>
+          {editError && (
+            <p role="alert" style={{ color: 'var(--color-error)', fontSize: 'var(--text-sm)' }}>{editError}</p>
+          )}
+          <label style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-1)', fontSize: 'var(--text-sm)', fontWeight: 'var(--font-medium)' }}>
+            Title <span style={{ color: 'var(--color-error)' }} aria-hidden="true">*</span>
+            <input
+              type="text"
+              value={editTitle}
+              onChange={(e) => setEditTitle(e.target.value)}
+              maxLength={500}
+              style={inputStyle}
+              aria-required="true"
+            />
+          </label>
+          <label style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-1)', fontSize: 'var(--text-sm)', fontWeight: 'var(--font-medium)' }}>
+            Description <span style={{ color: 'var(--color-text-muted)', fontWeight: 'var(--font-normal)' }}>(optional)</span>
+            <textarea
+              value={editDesc}
+              onChange={(e) => setEditDesc(e.target.value)}
+              maxLength={2000}
+              rows={3}
+              style={{ ...inputStyle, resize: 'vertical' }}
+            />
+          </label>
+        </div>
+      </Modal>
     </div>
   );
 }
+
+const inputStyle = {
+  width: '100%',
+  padding: 'var(--space-2) var(--space-3)',
+  border: '1px solid var(--color-border-strong)',
+  borderRadius: 'var(--radius-md)',
+  fontSize: 'var(--text-base)',
+  fontFamily: 'inherit',
+  background: 'var(--color-surface)',
+  color: 'var(--color-text-primary)',
+};

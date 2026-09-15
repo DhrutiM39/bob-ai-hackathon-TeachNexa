@@ -29,6 +29,7 @@ from backend.app.schemas.courses import (
     CourseDetail,
     CourseListItem,
     CoursesListResponse,
+    CourseUpdate,
     ModuleOut,
     TopicOut,
 )
@@ -344,3 +345,65 @@ def generate_course(
         modules=module_outs,
         model_used=model_used,
     )
+
+
+# ─────────────────────────────────────────────────────────────────────────────
+# PATCH /api/courses/{course_id}
+# ─────────────────────────────────────────────────────────────────────────────
+
+@router.patch(
+    "/api/courses/{course_id}",
+    response_model=CourseDetail,
+    status_code=status.HTTP_200_OK,
+    summary="Update course metadata (title / description)",
+    responses={
+        400: {"description": "Invalid course ID."},
+        404: {"description": "Course not found."},
+    },
+)
+def update_course(
+    course_id: str,
+    body: CourseUpdate,
+    db: Session = Depends(get_db),
+) -> CourseDetail:
+    """
+    Partial update of a course's title and/or description.
+
+    Only fields supplied in the request body are modified.
+    syllabus_text, owner_id, and all generated content are NOT touched.
+    """
+    try:
+        parsed_id = uuid.UUID(str(course_id))
+    except (ValueError, AttributeError):
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=f"'{course_id}' is not a valid course ID.",
+        )
+
+    course = (
+        db.query(Course)
+        .options(
+            joinedload(Course.modules)
+            .joinedload(Module.topics)
+            .joinedload(Topic.content_items),
+            joinedload(Course.modules)
+            .joinedload(Module.topics)
+            .joinedload(Topic.quizzes),
+        )
+        .filter(Course.id == parsed_id)
+        .first()
+    )
+    if course is None:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail=f"Course '{course_id}' not found.",
+        )
+
+    if body.title is not None:
+        course.title = body.title.strip()
+    if body.description is not None:
+        course.description = body.description.strip() or None
+
+    db.flush()
+    logger.info("Updated course '%s' (%s)", course.title, course.id)
+    return _build_course_detail(db, course)
