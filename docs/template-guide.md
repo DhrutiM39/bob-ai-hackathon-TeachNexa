@@ -1,415 +1,345 @@
-# Bob AI Innovation Hackathon Submission Template — Complete Guide
+# Developer Guide — CourseGenie AI
 
-This guide explains how to use the
-[bob-ai-hackathon-submission-template](https://github.com/drijesh-ppatel/bob-ai-hackathon-submission-template)
-to structure and submit your hackathon entry.
+This guide covers how the project is structured, how to extend it, and key conventions used throughout the codebase.
 
 ---
 
 ## Table of Contents
 
-1. [Overview](#1-overview)
-2. [Getting Started — Use the Template](#2-getting-started--use-the-template)
-3. [Repository Structure](#3-repository-structure)
-4. [File-by-File Walkthrough](#4-file-by-file-walkthrough)
-   - [submission.yaml](#41-submissionyaml--most-important)
-   - [README.md](#42-readmemd)
-   - [docs/](#43-docs)
-   - [src/](#44-src)
-   - [demo/](#45-demo)
-   - [presentation/](#46-presentation)
-5. [Automated Validation](#5-automated-validation)
-6. [Submission Checklist](#6-submission-checklist)
-7. [How Your Entry Is Evaluated](#7-how-your-entry-is-evaluated)
-8. [Common Mistakes](#8-common-mistakes)
-9. [FAQ](#9-faq)
+1. [Project Overview](#1-project-overview)
+2. [Repository Layout](#2-repository-layout)
+3. [Backend Conventions](#3-backend-conventions)
+4. [Frontend Conventions](#4-frontend-conventions)
+5. [AI Integration](#5-ai-integration)
+6. [Database & Migrations](#6-database--migrations)
+7. [Authentication](#7-authentication)
+8. [Testing Strategy](#8-testing-strategy)
+9. [Environment Variables Reference](#9-environment-variables-reference)
+10. [How to Add a New Feature](#10-how-to-add-a-new-feature)
 
 ---
 
-## 1. Overview
+## 1. Project Overview
 
-The template gives every team a consistent, well-structured repository so that:
+CourseGenie AI transforms a plain course syllabus into a complete learning experience using Google Gemini AI. The system is split into:
 
-- Judges can find what they need without hunting through your repo
-- The automated validation GitHub Action can check your submission is complete
-- Your entry is evaluated fairly against the same rubric as every other team
+- **FastAPI backend** (`src/backend/`) — REST API, AI generation, database persistence
+- **React 18 frontend** (`src/frontend/`) — SPA with JWT auth, TanStack Query, Zustand
 
-**One template → one repo per team. Do not share repos across teams.**
-
----
-
-## 2. Getting Started — Use the Template
-
-### Step 1 — Create your repo from the template
-
-1. Go to **[github.com/drijesh-ppatel/bob-ai-hackathon-submission-template](https://github.com/drijesh-ppatel/bob-ai-hackathon-submission-template)**
-2. Click the green **"Use this template"** button → **"Create a new repository"**
-
-   > ⚠️ Use **"Use this template"**, not "Fork". A fork shows as derived from the
-   > template in GitHub's UI and carries unnecessary history. The template button
-   > gives you a clean, independent repo.
-
-3. Name your repo: **`bob-ai-hackathon-[your-team-name]`**
-   (e.g., `bob-ai-hackathon-orion-squad`, `bob-ai-hackathon-team-phoenix`)
-4. Set visibility to **Public** — judges need to access it
-5. Click **"Create repository"**
-
-### Step 2 — Clone your new repo locally
-
-```bash
-git clone https://github.com/[your-github-username]/bob-ai-hackathon-[your-team-name].git
-cd bob-ai-hackathon-[your-team-name]
-```
-
-### Step 3 — Fill in your content (see section 4 below)
-
-### Step 4 — Push and verify the GitHub Action passes
-
-```bash
-git add .
-git commit -m "feat: initial submission"
-git push
-```
-
-Then go to your repo → **Actions** tab → confirm **✅ Validate Submission** is green.
-
-### Step 5 — Submit your repo URL via the entry form
+The backend is the source of truth for all data. The frontend is a thin display layer that calls REST endpoints and caches responses.
 
 ---
 
-## 3. Repository Structure
+## 2. Repository Layout
 
 ```
-bob-ai-hackathon-[your-team-name]/
-│
-├── submission.yaml          ← Structured metadata — READ BY EVALUATORS FIRST
-├── README.md                ← Project overview — human-readable entry point
-│
-├── src/                     ← All your source code goes here
-│   ├── .env.example         ← Template for environment variables
-│   └── README.md            ← Brief note on src/ layout
-│
-├── docs/                    ← Written documentation
-│   ├── problem-statement.md ← What problem you're solving and why it matters
-│   ├── solution-overview.md ← How your solution works
-│   ├── architecture.md      ← Technical architecture (diagram + explanation)
-│   └── setup-guide.md       ← Exact steps to run the project
-│
-├── demo/                    ← Demo artifacts
-│   ├── demo-video-link.txt  ← URL to your demo video (YouTube, Loom, Box)
-│   ├── live-demo-url.txt    ← URL to your deployed demo (or "NOT DEPLOYED")
-│   └── screenshots/         ← App screenshots (at least 3)
-│       └── README.md
-│
-├── presentation/            ← Slide deck (slides.pdf or slides.pptx)
-│
-├── CONTRIBUTING.md          ← Submission instructions (do not delete)
-├── .gitignore               ← Pre-configured — do not commit .env or node_modules
-└── .github/
-    └── workflows/
-        └── validate.yml     ← Automated submission validator (do not modify)
+bob-ai-hackathon-TeachNexa/
+├── src/
+│   ├── .env.example          ← copy to .env; never commit .env
+│   ├── backend/              ← Python FastAPI application
+│   └── frontend/             ← React 18 SPA
+├── docs/
+│   ├── problem-statement.md  ← problem context
+│   ├── solution-overview.md  ← how the solution works
+│   ├── architecture.md       ← system architecture + Mermaid diagram
+│   ├── setup-guide.md        ← step-by-step run instructions
+│   └── template-guide.md     ← this file — developer guide
+├── demo/                     ← screenshots, video link, live demo URL
+├── presentation/             ← slide deck
+├── submission.yaml           ← structured hackathon submission metadata
+└── README.md                 ← project overview
 ```
 
 ---
 
-## 4. File-by-File Walkthrough
+## 3. Backend Conventions
 
-### 4.1 `submission.yaml` — Most Important
+### Module layout
 
-This is the **first file the evaluators read**. Fill it in carefully and completely.
-
-```yaml
-team:
-  name: "Orion Squad"                   # Your team name
-  track: "AI"                           # AI | DevOps | Sustainability | Open
-  lead:
-    name: "Alice Chen"
-    email: "alice.chen@ibm.com"
-  members:
-    - name: "Bob Singh"
-      email: "bob.singh@ibm.com"
-    - name: "Carol Yu"
-      email: "carol.yu@ibm.com"
-
-submission:
-  title: "SmartOps Dashboard"
-  problem_statement: >
-    DevOps teams at IBM spend 3+ hours per incident manually correlating
-    logs across 12 tools. This delays MTTR and causes alert fatigue for
-    on-call engineers.
-  solution_summary: >
-    SmartOps ingests logs from all observability tools via a unified
-    MCP connector and uses watsonx.ai to surface the root cause and
-    recommended fix in a single conversational interface.
-  key_features:
-    - "Unified log ingestion from Instana, PagerDuty, and GitHub Actions"
-    - "Root cause classification using watsonx.ai Granite 3.0"
-    - "Natural language incident summaries via IBM Bob integration"
-    - "One-click runbook execution"
+```
+src/backend/
+  app/
+    api/         ← thin routers for simple endpoints (health, syllabus)
+    routers/     ← feature routers (auth, courses, topics)
+    schemas/     ← Pydantic request/response models only — no logic
+    services/    ← all business logic, AI calls, password/JWT ops
+    config.py    ← pydantic-settings singleton
+    main.py      ← FastAPI app + lifespan + router registration
+    seed.py      ← idempotent demo user seed
+  database/
+    connection.py  ← engine + Base
+    models.py      ← SQLAlchemy ORM models
+    session.py     ← get_db() FastAPI dependency
+  migrations/    ← Alembic migration versions
+  tests/         ← all pytest tests
 ```
 
-**Rules:**
-- Every field marked `# REQUIRED` must be filled — blank strings will fail validation
-- Do not rename this file
+### Route handler pattern
 
----
+Route handlers must be **thin** — they validate, call a service or helper, and return:
 
-### 4.2 `README.md`
+```python
+@router.post("/api/topics/{topic_id}/generate-content", ...)
+def generate_topic_content(
+    topic_id: str,
+    db: Session = Depends(get_db),
+    ds: DeepSeekClient = Depends(get_deepseek_client),
+    current_user: User = Depends(get_current_user),
+) -> TopicContentResponse:
+    topic = _get_topic_or_404(db, topic_id)          # validate
+    course = _assert_topic_owner(db, topic, current_user)  # authorise
+    content_data, model = ds.generate_topic_content(...)   # AI call
+    # ... persist
+    return _content_to_response(content_row, topic.id)     # return
+```
 
-The README is the **human-readable front page** of your repo. Replace every
-`[placeholder in brackets]` with your actual content.
+No SQL inside route handlers. All DB access goes through helper functions in the same file.
 
-Key sections to fill:
+### Ownership enforcement
 
-| Section | What to write |
+Every mutating endpoint resolves `owner_id` from the JWT — never from the request body. The pattern is:
+
+```python
+current_user: User = Depends(get_current_user)   # always injected
+# then:
+if course.owner_id != current_user.id:
+    raise HTTPException(status_code=403, ...)
+```
+
+### Error codes
+
+| Scenario | HTTP Code |
 |---|---|
-| **Team** | Team name, track, lead, members |
-| **Problem Statement** | 2–3 sentences: what problem, who experiences it |
-| **Solution** | 2–3 sentences: what you built, how it works |
-| **Key Features** | 3–5 specific implemented features |
-| **Tech Stack** | Languages, frameworks, IBM technologies used |
-| **How to Run** | Copy the exact commands from `docs/setup-guide.md` |
-| **Demo** | Links to video, live demo, screenshots |
-| **Known Limitations** | Honest gaps — judges appreciate transparency |
-| **What We're Most Proud Of** | Direct judges to your strongest work |
-
-> ✅ Before submitting, search the README for `[` — any remaining brackets mean
-> you missed a placeholder.
+| Invalid UUID | 400 |
+| Not found | 404 |
+| Wrong owner | 403 |
+| Duplicate (e.g. email) | 409 |
+| AI response malformed | 422 |
+| AI API unreachable | 502 |
+| Pydantic validation | 422 (FastAPI built-in) |
 
 ---
 
-### 4.3 `docs/`
+## 4. Frontend Conventions
 
-Four files, each with a specific purpose:
+### State management split
 
-#### `docs/problem-statement.md`
-Go deeper than the README. Cover:
-- The specific audience affected
-- Why existing solutions don't solve it
-- Quantified pain if you have data (time lost, error rate, cost)
-- Why this problem matters *now*
+| Layer | Tool | What it manages |
+|---|---|---|
+| Server state | TanStack Query v5 | All backend data (courses, content, quizzes) |
+| UI/local state | Zustand | Auth token + user, generation flow progress |
+| Component state | React `useState` | Form inputs, toggles, accordion open/close |
 
-#### `docs/solution-overview.md`
-Explain how your solution works at a conceptual level:
-- The core mechanism (not just a feature list)
-- What makes it different from naive alternatives
-- Key design decisions and why you made them
-- What the user experience looks like
+Never put server data in Zustand. Never put ephemeral UI state in TanStack Query.
 
-#### `docs/architecture.md`
-Include:
-- A **Mermaid diagram** or image showing system components and data flow
-- A component table (technology, responsibility)
-- How data moves through the system end-to-end
-- Any relevant security or scalability notes
+### Query key conventions
 
-Example diagram (replace with your own):
-```mermaid
-graph TD
-    A[User] -->|Chat prompt| B[IBM Bob CLI]
-    B -->|MCP call| C[Your MCP Server]
-    C -->|API| D[watsonx.ai]
-    C -->|Query| E[PostgreSQL]
-    D -->|Response| B
+Query keys always include the resource type and relevant IDs:
+
+```js
+['courses']                    // list
+['courses', courseId]          // single course
+['topics', topicId, 'content'] // topic content
+['topics', topicId, 'quiz']    // topic quiz
+['courses', courseId, 'revision']  // revision
 ```
 
-#### `docs/setup-guide.md`
-This is the **most critical doc for judges**. Write it as if the reader has
-never seen your repo. Include:
+### API service layer
 
-- All prerequisites (tools, accounts, versions)
-- Every environment variable (copy from `.env.example`)
-- Exact install commands
-- Exact run commands
-- How to verify it's working
-- A troubleshooting table for common errors
+All HTTP calls go through `src/frontend/src/services/api/`:
 
-> ✅ Test your own setup guide on a clean machine or fresh terminal before submitting.
+- `syllabusService.js` → `generateCourse()`
+- `courseService.js` → `getCourses()`, `getCourse()`
+- `topicService.js` → `generateTopicContent()`, `getTopicContent()`
+- `quizService.js` → `generateQuiz()`, `getQuiz()`, `generateRevision()`, `getRevision()`
+
+Each function returns the raw Axios response data. Adapter functions in `services/adapters/` normalise field names defensively before passing data to components.
+
+### Auth
+
+JWT is stored in Zustand + `localStorage`. The Axios instance attaches it via a request interceptor. On 401 response, the store clears the token and redirects to `/login`.
 
 ---
 
-### 4.4 `src/`
+## 5. AI Integration
 
-Put **all source code** inside this directory.
+The `DeepSeekClient` class in [`services/deepseek_client.py`](../src/backend/app/services/deepseek_client.py) is the single point of contact with the AI provider.
 
-```
-src/
-├── .env.example        ← List every environment variable with a description
-├── README.md           ← Brief description of what's in src/ and how it's organised
-├── [your code here]
-```
+**Active provider:** Google Gemini (`gemini-1.5-flash`) via `https://generativelanguage.googleapis.com/v1beta/openai/`
 
-**Rules:**
-- `.env` is in `.gitignore` — never commit real credentials
-- Update `.env.example` with every variable your code needs (dummy values are fine)
-- Do not commit `node_modules/`, `__pycache__/`, `.venv/`, or build artefacts
+**To switch providers (e.g. back to DeepSeek):**
 
----
+1. Change `_get_client()` to use `base_url="https://api.deepseek.com"` and `api_key=self._settings.deepseek_api_key`
+2. Change the `model` variable references from `self._settings.gemini_model` to `self._settings.deepseek_model`
+3. Set `DEEPSEEK_API_KEY` in `.env`
 
-### 4.5 `demo/`
+**Prompt engineering rules:**
+- All prompts end with `Return ONLY a valid JSON object — no markdown, no explanation, no code fences.`
+- `_extract_json()` strips fences in case the model ignores the instruction
+- Temperature is kept low (0.2–0.3) for structured JSON output
+- `max_tokens` is set conservatively per method (2048–3500)
 
-Judges evaluate whether your project **actually works**. The demo folder is
-your evidence.
-
-#### `demo/demo-video-link.txt`
-Replace the placeholder with a URL to a **3–5 minute video** showing:
-1. The app starting up successfully
-2. A real user journey through the key feature
-3. Actual output being produced (not mocked)
-
-Accepted platforms: YouTube (unlisted), Loom, Box, Google Drive (view-only link)
-
-```
-# demo/demo-video-link.txt
-https://www.loom.com/share/your-actual-video-id
-```
-
-#### `demo/live-demo-url.txt`
-If your app is deployed, add the URL here. If not, write `NOT DEPLOYED`.
-
-#### `demo/screenshots/`
-Add **at least 3 screenshots** of the running application. Name them sequentially:
-```
-01-home-dashboard.png
-02-query-input.png
-03-result-output.png
-```
+**Adding a new generation method:**
+1. Write a `_NEW_PROMPT` template string at module level
+2. Add a method `generate_X(self, ...)` following the same pattern as existing methods
+3. Add a route handler in the appropriate router
+4. Add a test with a mocked `DeepSeekClient`
 
 ---
 
-### 4.6 `presentation/`
+## 6. Database & Migrations
 
-Add your slide deck as `presentation/slides.pdf` (preferred) or `slides.pptx`.
+### ORM model conventions
 
-Your deck should cover (in order):
-1. Problem — who, what, why it hurts
-2. Solution — what you built and how it works
-3. Demo / architecture — key technical highlights
-4. IBM technology integration — where and how Bob/watsonx is used
-5. Impact — what this could become beyond the hackathon
+- All primary keys are `Uuid` type (PostgreSQL native UUID; maps to Python `uuid.UUID`)
+- `created_at` defaults to `datetime.now(timezone.utc)` via `_now()`
+- Cascade deletes propagate from parent to children (Course → Modules → Topics → Content/Quizzes)
+- Unique constraints on `(topic_id, content_type)` and `(course_id, content_type)` enforce at-most-one-item-per-parent
 
----
+### Creating a migration
 
-## 5. Automated Validation
+```bash
+# After modifying models.py:
+alembic -c src/backend/alembic.ini revision --autogenerate -m "describe change"
 
-Every push to your repo triggers the **Validate Submission** GitHub Action
-(`.github/workflows/validate.yml`). It checks:
+# Review the generated file in migrations/versions/ before applying
+alembic -c src/backend/alembic.ini upgrade head
+```
 
-- `submission.yaml` exists and is valid YAML
-- Required fields in `submission.yaml` are not empty
-- `docs/setup-guide.md` exists
-- `demo/demo-video-link.txt` exists
+### PostgreSQL vs SQLite differences
 
-**To check your validation status:**
-1. Go to your repo on GitHub
-2. Click the **Actions** tab
-3. Look for the most recent **Validate Submission** run
-4. ✅ green = submission is structurally complete
-5. ❌ red = click the run, read the error, fix it, push again
+| Concern | PostgreSQL | SQLite (tests) |
+|---|---|---|
+| `options` column | `JSONB` | `JSON` (plain) |
+| UUID type | native `UUID` | stored as `VARCHAR(36)` |
+| Unique index on NULLs | NULL ≠ NULL (compliant) | NULL ≠ NULL (compliant) |
 
-> ⚠️ Do not modify `.github/workflows/validate.yml` — it will be ignored if changed.
+The Alembic `env.py` detects the dialect and uses `JSONB` only on PostgreSQL.
 
 ---
 
-## 6. Submission Checklist
+## 7. Authentication
 
-Work through this before clicking submit:
+### Flow
 
-**Content**
-- [ ] `submission.yaml` — all `# REQUIRED` fields filled
-- [ ] `README.md` — no `[placeholder]` text remaining
-- [ ] `docs/problem-statement.md` — written (not template text)
-- [ ] `docs/solution-overview.md` — written (not template text)
-- [ ] `docs/architecture.md` — diagram and explanation present
-- [ ] `docs/setup-guide.md` — tested end-to-end by a teammate
-- [ ] `src/` — all source code committed, `.env.example` updated
-- [ ] `demo/demo-video-link.txt` — real working video URL
-- [ ] `demo/screenshots/` — at least 3 screenshots of the running app
-- [ ] `presentation/slides.pdf` (or `.pptx`) — present
+```
+POST /api/auth/signup
+  Body: { name, email, password }
+  → bcrypt.hashpw(password) → stored as password_hash
+  → create_access_token(user.id) → HS256 JWT
+  ← { access_token, user_id, name, email, role }
 
-**Technical**
-- [ ] No `.env` files committed (check `git log` if unsure)
-- [ ] No `node_modules/`, `.venv/`, or build artefacts committed
-- [ ] GitHub Actions **✅ Validate Submission** is green
-- [ ] Repository is **Public**
+POST /api/auth/login
+  Body: { email, password }
+  → load user by email
+  → bcrypt.checkpw(password, password_hash)  ← constant-time
+  → create_access_token(user.id)
+  ← { access_token, ... }
 
-**Submission**
-- [ ] Entry form submitted before the deadline
-- [ ] Repo URL is correct in the form
+All protected routes:
+  Header: Authorization: Bearer <token>
+  → get_current_user() decodes JWT → loads User from DB
+  → raises 401 if token missing/invalid/expired
+```
+
+### Changing token expiry
+
+Set `JWT_EXPIRE_MINUTES` in `.env` (default: 10080 = 7 days).
+
+### Rotating the secret
+
+Change `SECRET_KEY` in `.env` and restart. All existing tokens immediately become invalid — users must log in again.
 
 ---
 
-## 7. How Your Entry Is Evaluated
+## 8. Testing Strategy
 
-Entries are scored on 6 criteria totalling **100 points**:
+All tests are in `src/backend/tests/`. The test suite uses:
 
-| # | Criterion | Pts | What evaluators look for |
+- **pytest** as runner
+- **httpx** via FastAPI `TestClient` for endpoint tests
+- **In-memory SQLite** via a scoped `SessionLocal` fixture in `conftest.py` — no PostgreSQL required
+- **`unittest.mock.MagicMock`** for the `DeepSeekClient` — no Gemini API calls in CI
+
+### Running tests
+
+```bash
+pytest -v                                         # all tests
+pytest src/backend/tests/test_auth.py -v          # single file
+pytest -k "test_generate" -v                      # by name pattern
+pytest --tb=short -v                              # short tracebacks
+```
+
+### Writing a new test
+
+```python
+def test_my_new_endpoint(client, db_session):
+    # client: FastAPI TestClient (from conftest.py)
+    # db_session: in-memory SQLite session
+    response = client.post("/api/my-route", json={...}, headers={"Authorization": f"Bearer {token}"})
+    assert response.status_code == 201
+    assert response.json()["field"] == "expected"
+```
+
+---
+
+## 9. Environment Variables Reference
+
+| Variable | Default | Used by | Notes |
 |---|---|---|---|
-| 1 | Technical Implementation Quality | 25 | Was it actually built, and built well? Reads source code, not just the README |
-| 2 | Innovation & Differentiation | 25 | Does it solve the problem in a non-obvious way? Anchored in the code |
-| 3 | Problem Depth & Vision | 15 | Does the team deeply understand the problem, not just the spec? |
-| 4 | Working Demo & Functionality | 15 | Does it actually run? Can a judge reproduce it? |
-| 5 | IBM Bob Integration | 10 | Is IBM Bob load-bearing in the solution, not just name-dropped? |
-| 6 | Documentation & Reproducibility | 10 | Can someone else understand, run, and build on this? |
-
-**What this means for you:**
-- Evaluators **read your source code** — a polished README with empty `src/` will score low
-- A working demo matters — partial functionality that runs scores better than complete scaffolding that doesn't
-- IBM Bob must be genuinely integrated, not just mentioned in docs
-- Honest `known_limitations` are respected — overclaiming hurts your score when the code doesn't match
-
----
-
-## 8. Common Mistakes
-
-| Mistake | How to avoid it |
-|---|---|
-| Leaving `[placeholder]` text in README | Search the file for `[` before pushing |
-| Committing `.env` with real credentials | Check `.gitignore` includes `.env`; use `git status` |
-| `demo-video-link.txt` still has the placeholder URL | Open the file and replace it with your real link |
-| Repository set to Private | Judges cannot access private repos — set to Public |
-| `src/` is empty or has only boilerplate | Your source code must be in `src/` |
-| Setup guide missing key steps | Test it yourself on a fresh terminal before submitting |
-| Video link requires special access | Use "anyone with link" permissions on Loom/YouTube/Box |
+| `GEMINI_API_KEY` | `""` | `DeepSeekClient` | Required for AI generation |
+| `GEMINI_MODEL` | `gemini-1.5-flash` | `DeepSeekClient` | Override to use a different model |
+| `DEEPSEEK_API_KEY` | `""` | Legacy | Not used at runtime |
+| `DEEPSEEK_MODEL` | `deepseek-chat` | Legacy | Not used at runtime |
+| `DATABASE_URL` | `postgresql://coursegenie:changeme@localhost:5432/coursegenie` | SQLAlchemy | Must point to a running PG instance |
+| `SECRET_KEY` | `change-me-...` | `auth_service` | Must be set to a random value in any real deployment |
+| `JWT_ALGORITHM` | `HS256` | `auth_service` | No reason to change |
+| `JWT_EXPIRE_MINUTES` | `10080` | `auth_service` | 7 days |
+| `APP_ENV` | `development` | `main.py` | `development` → DEBUG logs + open CORS |
+| `APP_PORT` | `8000` | Uvicorn (informational) | Pass `--port` to Uvicorn separately |
+| `VITE_API_BASE_URL` | _(empty)_ | Vite proxy | Empty = same origin (dev proxy handles it) |
+| `VITE_USE_MOCKS` | `false` | Frontend | `true` → serve fixture data, no backend needed |
 
 ---
 
-## 9. FAQ
+## 10. How to Add a New Feature
 
-**Q: Can we use our own repo structure inside `src/`?**
-Yes — the structure inside `src/` is entirely up to you. The top-level
-structure (the directories and files outside `src/`) must stay as-is.
+### Example: add a new AI generation endpoint (e.g. "generate glossary")
 
-**Q: Our project has a monorepo with frontend and backend. Where does it go?**
-Put everything inside `src/`:
-```
-src/
-├── frontend/
-├── backend/
-└── README.md   ← explain the layout
+**1. Add a prompt template** in [`deepseek_client.py`](../src/backend/app/services/deepseek_client.py):
+```python
+_GLOSSARY_PROMPT = """..."""
 ```
 
-**Q: Can we add extra files or directories?**
-Yes, at the top level or inside `src/`. Do not delete or rename any of
-the template files — the validation action and evaluators depend on them.
+**2. Add a method** to `DeepSeekClient`:
+```python
+def generate_glossary(self, topic_title: str, ...) -> tuple[dict, str]:
+    ...
+```
 
-**Q: What if our demo isn't deployed?**
-Write `NOT DEPLOYED` in `demo/live-demo-url.txt`. Your demo video is
-the primary evidence — make sure it shows the app running locally.
+**3. Add a Pydantic schema** in `src/backend/app/schemas/`:
+```python
+class GlossaryResponse(BaseModel):
+    topic_id: uuid.UUID
+    terms: list[GlossaryTerm]
+    generated_at: datetime
+```
 
-**Q: Can we update our submission after pushing?**
-Yes — keep pushing until the deadline. The evaluators use the state of
-your repo at the deadline, not the first push.
+**4. Add a route handler** in `src/backend/app/routers/topics.py`:
+```python
+@router.post("/api/topics/{topic_id}/generate-glossary", response_model=GlossaryResponse, ...)
+def generate_topic_glossary(topic_id: str, db=Depends(get_db), ds=Depends(get_deepseek_client), current_user=Depends(get_current_user)):
+    ...
+```
 
-**Q: The GitHub Action is failing — what do I do?**
-Click the failing run in the Actions tab, read the error message, and
-fix the issue it describes. The most common causes are:
-- Missing or empty required fields in `submission.yaml`
-- `submission.yaml` has invalid YAML syntax (check indentation and quotes)
+**5. Add a migration** if new DB columns are needed:
+```bash
+alembic -c src/backend/alembic.ini revision --autogenerate -m "add glossary to content"
+alembic -c src/backend/alembic.ini upgrade head
+```
 
-**Q: Do we need to keep `CONTRIBUTING.md`?**
-Yes — do not delete it. It is part of the template structure.
+**6. Add a test** in `src/backend/tests/test_topics.py` with a mocked `DeepSeekClient`.
 
----
+**7. Add a frontend service function** in `src/frontend/src/services/api/topicService.js` and a TanStack Query hook.
 
-*For questions about the hackathon, contact the organiser directly.*
+**8. Add the UI** in `src/frontend/src/pages/TopicLearning.jsx` or a new page.
