@@ -1,3 +1,11 @@
+# =============================================================================
+# HACKATHON SUBMISSION METADATA
+# =============================================================================
+# Team: TeachNexa
+# Project: CourseGenie AI — AI Professor Assistant: From Syllabus to Complete Course
+# Track: AI
+# =============================================================================
+
 team:
   name: "TeachNexa"
   track: "AI"
@@ -13,7 +21,7 @@ team:
       email: "24it034@charusat.edu.in"
 
 submission:
-  title: "CourseGenie AI"
+  title: "CourseGenie AI — AI Professor Assistant: From Syllabus to Complete Course"
 
   problem_statement: >
     College professors and educators spend significant time converting a syllabus

@@ -1,30 +1,36 @@
-# Presentation
+# Presentation — CourseGenie AI
 
-Place your slide deck in this folder.
+## Slide Deck
 
-## Accepted Formats
+| File | Description |
+|---|---|
+| [`slides.pdf`](slides.pdf) | CourseGenie AI — IBM Bob AI Innovation Hackathon presentation (Team TeachNexa) |
 
-  slides.pdf      ← Preferred (universally viewable)
-  slides.pptx     ← Acceptable
-  slides.key      ← Acceptable (macOS Keynote)
+---
 
-Rename your file to `slides.pdf` (or `slides.pptx`) so the evaluation
-pipeline can locate it reliably.
+## Slide Structure (8 slides)
 
-## Recommended Slide Structure (5–8 slides)
+| Slide | Title | Content |
+|---|---|---|
+| 1 | **Title** | CourseGenie AI · Team TeachNexa · IBM Bob AI Innovation Hackathon · AI Track |
+| 2 | **Problem** | Professors lose 60–100 hrs/course on manual prep · fragmented student content |
+| 3 | **Solution** | Syllabus → AI → Modules + Topics + Content + Quiz + Revision in minutes |
+| 4 | **Architecture** | React 18 → FastAPI → Google Gemini AI + PostgreSQL 15 |
+| 5 | **Demo / Key Feature** | 4-step flow: Create Course → Browse Tree → Generate Content → Quiz & Revise |
+| 6 | **IBM Technologies** | IBM Bob used throughout — code generation, architecture, auth, 148+ tests |
+| 7 | **Results / Impact** | 16 API endpoints · 148+ tests · 60–100 hrs saved per course per semester |
+| 8 | **Team** | Dhruti Movaliya · Riya Kalariya · Hardi Patel · Ishan Kachhadiya |
 
-  Slide 1: Title — Project name, team name, track
-  Slide 2: Problem — What problem? Who has it? Why does it matter?
-  Slide 3: Solution — What you built in one clear diagram or screenshot
-  Slide 4: Architecture — How the system works technically
-  Slide 5: Demo / Key Feature — Screenshot or flow of your best feature
-  Slide 6: IBM Technologies — Specifically how you used them
-  Slide 7: Results / Impact — What does success look like? Any metrics?
-  Slide 8: Team — Names, roles, what each person built
+---
 
-## Tips
+## Project Info
 
-- Keep slides visual — diagrams beat bullet points
-- One idea per slide
-- Font size minimum 24pt for readability
-- Do not paste large code blocks into slides — reference the repo instead
+| Field | Value |
+|---|---|
+| **Project** | CourseGenie AI — AI Professor Assistant: From Syllabus to Complete Course |
+| **Team** | TeachNexa |
+| **Track** | AI |
+| **Hackathon** | IBM Bob AI Innovation Hackathon |
+| **Source code** | [`src/`](../src/) |
+| **Architecture doc** | [`docs/architecture.md`](../docs/architecture.md) |
+| **Setup guide** | [`docs/setup-guide.md`](../docs/setup-guide.md) |
