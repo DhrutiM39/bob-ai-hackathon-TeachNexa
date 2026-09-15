@@ -1,23 +1,23 @@
 import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
+import { useQueryClient } from '@tanstack/react-query';
 import styles from './CreateCourse.module.css';
 import useGenerationStore from '../store/useGenerationStore.js';
 import { GENERATION_STAGES, ROUTES } from '../constants/index.js';
 import { generateCourse } from '../services/api/syllabusService.js';
 import { adaptCourse } from '../services/adapters/courseAdapter.js';
+import { extractSyllabusText } from '../utils/extractSyllabusText.js';
 import FileUploader from '../components/syllabus/FileUploader.jsx';
 import GenerationProgress from '../components/syllabus/GenerationProgress.jsx';
+import StepIndicator from '../components/common/StepIndicator.jsx';
 import Button from '../components/common/Button.jsx';
 import PageHeader from '../components/layout/PageHeader.jsx';
 
 const STAGE_IDS = GENERATION_STAGES.map((s) => s.id);
 
-// Approximate share of total generation time spent before/between stages.
-// These keep GenerationProgress animated while the single POST is in-flight.
-const STAGE_DELAYS_MS = [0, 1500, 1500, 1500, 1500];
-
 export default function CreateCourse() {
   const navigate = useNavigate();
+  const queryClient = useQueryClient();
   const store = useGenerationStore();
   const [formErrors, setFormErrors] = useState({});
 
@@ -33,8 +33,7 @@ export default function CreateCourse() {
   const runGeneration = async () => {
     store.startGeneration();
 
-    // DEV-ONLY mock path — set VITE_USE_MOCKS=true in .env.local to activate.
-    // The default (false) always hits the real API.
+    // Mock path — fast fake loop for UI development
     if (import.meta.env.VITE_USE_MOCKS === 'true') {
       for (let i = 0; i < STAGE_IDS.length; i++) {
         store.advanceStage(STAGE_IDS[i]);
@@ -43,40 +42,43 @@ export default function CreateCourse() {
       const mockId = 'mock-cs101';
       store.finishGeneration(mockId);
       await delay(600);
-      navigate(ROUTES.COURSE_OVERVIEW(mockId));
+      navigate(ROUTES.COURSE_MODULES(mockId));
       return;
     }
 
     try {
-      // Tick through early stages to animate the progress UI while we wait
-      // for the backend.  The real work is the single generateCourse() call.
-      store.advanceStage('analyzing');
+      // ── Resolve the syllabus text ─────────────────────────────────────────
+      let syllabusText = store.syllabusText.trim();
 
-      // Fire the real API call — POST /api/v1/courses/generate
-      // GenerateCourseRequest: { title, syllabus_text, owner_id }
-      const generatePromise = generateCourse({
+      if (!syllabusText && store.syllabusFile) {
+        syllabusText = await extractSyllabusText(store.syllabusFile);
+      }
+
+      // Advance through UI stages while the single real call runs
+      store.advanceStage('analyzing');
+      await delay(300);
+      store.advanceStage('modules');
+      await delay(300);
+      store.advanceStage('topics');
+      await delay(300);
+      store.advanceStage('organizing');
+
+      // Real API call — POST /api/v1/courses/generate
+      const courseData = await generateCourse({
         title: store.courseTitle,
-        syllabus_text: store.syllabusText,
-        owner_id: null,           // populated once auth is wired (future milestone)
+        syllabus_text: syllabusText,
       });
 
-      // Advance through intermediate stages while the request is in-flight
-      await delay(STAGE_DELAYS_MS[1]);
-      store.advanceStage('modules');
-      await delay(STAGE_DELAYS_MS[2]);
-      store.advanceStage('topics');
-      await delay(STAGE_DELAYS_MS[3]);
-      store.advanceStage('organizing');
-      await delay(STAGE_DELAYS_MS[4]);
       store.advanceStage('content');
-
-      // Await the real response
-      const courseData = await generatePromise;
+      await delay(400);
 
       const course = adaptCourse(courseData);
+      queryClient.invalidateQueries({ queryKey: ['courses'] });
       store.finishGeneration(course.id);
       await delay(600);
-      navigate(ROUTES.COURSE_OVERVIEW(course.id));
+
+      // Step 1 done → go to Step 2 (Module Review)
+      navigate(ROUTES.COURSE_MODULES(course.id));
     } catch (err) {
       store.failGeneration(err.message || 'Generation failed. Please try again.');
     }
@@ -101,6 +103,7 @@ export default function CreateCourse() {
   if (store.isGenerating || store.generatedCourseId) {
     return (
       <div className={styles.page}>
+        <StepIndicator currentStep={1} />
         <GenerationProgress
           currentStage={store.currentStage}
           completedStages={store.completedStages}
@@ -117,9 +120,12 @@ export default function CreateCourse() {
 
   return (
     <div className={styles.page}>
+      {/* Workflow progress bar */}
+      <StepIndicator currentStep={1} />
+
       <PageHeader
         title="Create New Course"
-        subtitle="Paste your syllabus or upload a file and let IBM watsonx.ai build a complete structured course for you."
+        subtitle="Step 1 of 3 — Paste your syllabus or upload a file. AI will build a complete structured course for you."
       />
 
       {/* What AI does — explanation panel */}
@@ -220,10 +226,10 @@ export default function CreateCourse() {
 
         <div className={styles.submitRow}>
           <p className={styles.submitNote}>
-            Generation typically takes 30–90 seconds depending on syllabus length.
+            Generation typically takes 30–90 seconds. You'll review modules before continuing.
           </p>
           <Button type="submit" variant="primary" size="lg">
-            Generate Course with AI →
+            Analyze Syllabus →
           </Button>
         </div>
       </form>

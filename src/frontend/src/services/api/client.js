@@ -28,7 +28,9 @@ client.interceptors.response.use(
       error.response?.data?.message ||
       error.message ||
       'An unexpected error occurred.';
-    return Promise.reject(new Error(message));
+    const err = new Error(message);
+    err.status = error.response?.status;
+    return Promise.reject(err);
   }
 );
 

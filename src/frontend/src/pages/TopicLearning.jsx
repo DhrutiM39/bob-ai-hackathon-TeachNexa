@@ -20,7 +20,7 @@ export default function TopicLearning() {
   const generate = useGenerateTopicContent(topicId);
 
   // Find the topic in the course to get its title
-  const topic = course?.modules?.flatMap((m) => m.topics).find((t) => t.id === topicId);
+  const topic = course?.modules?.flatMap((m) => m.topics).find((t) => String(t.id) === String(topicId));
 
   const handleGenerate = () => generate.mutate();
 
@@ -101,7 +101,7 @@ export default function TopicLearning() {
             <EmptyState
               icon="📖"
               title="Content not yet generated"
-              description="Click 'Generate Content' to let IBM watsonx.ai create learning material for this topic."
+              description="Click 'Generate Content' to let AI create learning material for this topic."
               actionLabel="Generate Content"
               onAction={handleGenerate}
             />

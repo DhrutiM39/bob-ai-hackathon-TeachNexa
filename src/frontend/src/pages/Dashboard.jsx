@@ -35,7 +35,7 @@ export default function Dashboard() {
             Welcome to <span className={styles.accent}>CourseGenie AI</span>
           </h1>
           <p className={styles.welcomeSubtitle}>
-            Transform your college syllabus into a complete, structured course — powered by IBM watsonx.ai.
+            Transform your college syllabus into a complete, structured course — powered by AI.
           </p>
         </div>
         <Button
@@ -51,13 +51,23 @@ export default function Dashboard() {
       {/* Feature pills */}
       <div className={styles.featurePills} aria-label="What CourseGenie AI does">
         {[
-          { icon: '📄', label: 'Syllabus Analysis' },
-          { icon: '🧩', label: 'Module Generation' },
-          { icon: '📖', label: 'Learning Content' },
-          { icon: '✅', label: 'Quizzes' },
-          { icon: '🔁', label: 'Revision Center' },
-        ].map(({ icon, label }) => (
-          <div key={label} className={styles.pill}>
+          { icon: '📄', label: 'Syllabus Analysis', onClick: () => navigate(ROUTES.CREATE_COURSE) },
+          { icon: '🧩', label: 'Module Generation', onClick: () => navigate(ROUTES.CREATE_COURSE) },
+          { icon: '📖', label: 'Learning Content', onClick: () => navigate(ROUTES.CREATE_COURSE) },
+          {
+            icon: '✅', label: 'Quizzes',
+            onClick: () => courses?.length > 0
+              ? navigate(ROUTES.COURSE_OVERVIEW(courses[0].id))
+              : navigate(ROUTES.CREATE_COURSE),
+          },
+          {
+            icon: '🔁', label: 'Revision Center',
+            onClick: () => courses?.length > 0
+              ? navigate(ROUTES.REVISION(courses[0].id))
+              : navigate(ROUTES.CREATE_COURSE),
+          },
+        ].map(({ icon, label, onClick }) => (
+          <div key={label} className={styles.pill} onClick={onClick} style={{ cursor: 'pointer' }}>
             <span aria-hidden="true">{icon}</span>
             <span>{label}</span>
           </div>

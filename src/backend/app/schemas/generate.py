@@ -13,7 +13,15 @@ from pydantic import BaseModel, Field, field_validator
 # ─────────────────────────────────────────────────────────────────────────────
 
 class GenerateCourseRequest(BaseModel):
-    """Body for POST /api/v1/courses/generate."""
+    """
+    Body for POST /api/v1/courses/generate.
+
+    owner_id is intentionally absent: the backend derives it server-side from
+    the demo user constant (DEMO_OWNER_ID in routers/courses.py).  This removes
+    the ability for a client to spoof course ownership.
+
+    NOTE: Hackathon MVP — full per-user authentication is future work.
+    """
 
     syllabus_text: Annotated[
         str,
@@ -35,10 +43,6 @@ class GenerateCourseRequest(BaseModel):
         str | None,
         Field(default=None, max_length=2000, description="Optional short description."),
     ] = None
-    owner_id: Annotated[
-        uuid.UUID,
-        Field(description="UUID of the user who owns this course."),
-    ]
 
     @field_validator("syllabus_text", mode="before")
     @classmethod

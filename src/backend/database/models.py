@@ -51,6 +51,7 @@ class User(Base):
     id = Column(Uuid, primary_key=True, default=uuid.uuid4, nullable=False)
     name = Column(String(255), nullable=False)
     email = Column(String(255), nullable=False)
+    password_hash = Column(String(255), nullable=True)   # NULL for legacy demo user
     role = Column(String(50), nullable=False, default="student")
     created_at = Column(DateTime(timezone=True), nullable=False, default=_now)
 
@@ -86,6 +87,12 @@ class Course(Base):
     # relationships
     owner = relationship("User", back_populates="courses")
     modules = relationship("Module", back_populates="course", cascade="all, delete-orphan")
+    revision_content = relationship(
+        "Content",
+        back_populates="course",
+        cascade="all, delete-orphan",
+        foreign_keys="Content.course_id",
+    )
 
     __table_args__ = (
         Index("ix_courses_owner_id", "owner_id"),
@@ -159,22 +166,38 @@ class Content(Base):
     __tablename__ = "content"
 
     id = Column(Uuid, primary_key=True, default=uuid.uuid4, nullable=False)
+    # topic_id is nullable — revision rows are anchored by course_id instead.
     topic_id = Column(
         Uuid,
         ForeignKey("topics.id", ondelete="CASCADE"),
-        nullable=False,
+        nullable=True,
     )
-    content_type = Column(String(100), nullable=False)  # e.g. "lecture", "video", "reading"
+    # course_id is set only for course-level content (content_type="revision").
+    # Nullable so existing topic-level rows are unaffected.
+    course_id = Column(
+        Uuid,
+        ForeignKey("courses.id", ondelete="CASCADE"),
+        nullable=True,
+    )
+    content_type = Column(String(100), nullable=False)  # e.g. "lecture", "revision"
     title = Column(String(500), nullable=False)
     body = Column(Text, nullable=True)
-    model_name = Column(String(255), nullable=True)  # watsonx.ai model used to generate this
+    model_name = Column(String(255), nullable=True)
     created_at = Column(DateTime(timezone=True), nullable=False, default=_now)
 
     # relationships
     topic = relationship("Topic", back_populates="content_items")
+    course = relationship("Course", back_populates="revision_content")
 
     __table_args__ = (
         Index("ix_content_topic_id", "topic_id"),
+        Index("ix_content_course_id", "course_id"),
+        # At most one generated item of each type per topic.
+        # NULL topic_id values (revision rows) are excluded by SQL-standard NULL
+        # uniqueness rules on both SQLite and PostgreSQL.
+        Index("uq_content_topic_type", "topic_id", "content_type", unique=True),
+        # At most one revision per course.
+        Index("uq_content_course_type", "course_id", "content_type", unique=True),
     )
 
     def __repr__(self) -> str:
