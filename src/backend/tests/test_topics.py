@@ -495,15 +495,16 @@ class TestGenerateCourseRevision:
         assert isinstance(body["practice_questions"], list)
 
     def test_revision_persisted_to_db(self, db):
-        course, _, topics = _make_hierarchy(db)
-        topic_ids = [t.id for t in topics]
+        course, _, _ = _make_hierarchy(db)
         c = _make_client(db, _mock_ds_revision())
         c.post(COURSE_REVISION_ENDPOINT.format(course.id))
         content = db.query(Content).filter(
-            Content.topic_id.in_(topic_ids),
+            Content.course_id == course.id,
             Content.content_type == "revision",
         ).first()
         assert content is not None
+        # Confirm topic_id is NULL — revision is anchored by course_id only
+        assert content.topic_id is None
 
     def test_nonexistent_course_returns_404(self, db):
         c = _make_client(db, _mock_ds_revision())
@@ -563,3 +564,308 @@ class TestGetCourseRevision:
         c = _make_client(db)
         response = c.get(COURSE_REVISION_GET.format("not-a-uuid"))
         assert response.status_code == 400
+
+
+# ─────────────────────────────────────────────────────────────────────────────
+# Replacement / idempotency tests
+# ─────────────────────────────────────────────────────────────────────────────
+
+class TestContentReplacement:
+    """Verify that regeneration REPLACES old rows rather than duplicating them."""
+
+    def test_content_regeneration_exactly_one_row(self, db):
+        """Generate content twice — only one lecture row must exist afterwards."""
+        _, _, topics = _make_hierarchy(db)
+        tid = topics[0].id
+        c = _make_client(db, _mock_ds_content())
+        c.post(TOPIC_CONTENT_ENDPOINT.format(tid))
+        first_id = db.query(Content).filter(
+            Content.topic_id == tid, Content.content_type == "lecture"
+        ).first().id
+        c.post(TOPIC_CONTENT_ENDPOINT.format(tid))
+        rows = db.query(Content).filter(
+            Content.topic_id == tid, Content.content_type == "lecture"
+        ).all()
+        assert len(rows) == 1, f"Expected 1 lecture row, got {len(rows)}"
+        # new row must have a different id
+        assert rows[0].id != first_id
+
+    def test_content_regeneration_no_orphan_rows(self, db):
+        """No Content rows of any type must be left orphaned after regeneration."""
+        _, _, topics = _make_hierarchy(db)
+        tid = topics[0].id
+        c = _make_client(db, _mock_ds_content())
+        for _ in range(3):
+            c.post(TOPIC_CONTENT_ENDPOINT.format(tid))
+        total = db.query(Content).filter(Content.topic_id == tid).count()
+        assert total == 1
+
+    def test_quiz_regeneration_exactly_one_quiz(self, db):
+        """Generate quiz twice — only one Quiz row must exist afterwards."""
+        _, _, topics = _make_hierarchy(db)
+        tid = topics[0].id
+        c = _make_client(db, _mock_ds_quiz())
+        c.post(TOPIC_QUIZ_ENDPOINT.format(tid))
+        first_quiz_id = db.query(Quiz).filter(Quiz.topic_id == tid).first().id
+        c.post(TOPIC_QUIZ_ENDPOINT.format(tid))
+        quizzes = db.query(Quiz).filter(Quiz.topic_id == tid).all()
+        assert len(quizzes) == 1, f"Expected 1 quiz, got {len(quizzes)}"
+        assert quizzes[0].id != first_quiz_id
+
+    def test_quiz_regeneration_old_questions_deleted(self, db):
+        """Old Quiz's Questions must be gone after regeneration."""
+        _, _, topics = _make_hierarchy(db)
+        tid = topics[0].id
+        c = _make_client(db, _mock_ds_quiz())
+        c.post(TOPIC_QUIZ_ENDPOINT.format(tid))
+        old_quiz_id = db.query(Quiz).filter(Quiz.topic_id == tid).first().id
+        c.post(TOPIC_QUIZ_ENDPOINT.format(tid))
+        # old quiz row must be gone
+        assert db.query(Quiz).filter(Quiz.id == old_quiz_id).first() is None
+        # old questions (FK → old quiz) must also be gone
+        orphan_questions = db.query(Question).filter(
+            Question.quiz_id == old_quiz_id
+        ).count()
+        assert orphan_questions == 0
+
+    def test_quiz_regeneration_new_questions_belong_to_new_quiz(self, db):
+        """All Question rows must belong to the new Quiz after regeneration."""
+        _, _, topics = _make_hierarchy(db)
+        tid = topics[0].id
+        c = _make_client(db, _mock_ds_quiz())
+        c.post(TOPIC_QUIZ_ENDPOINT.format(tid))
+        c.post(TOPIC_QUIZ_ENDPOINT.format(tid))
+        new_quiz = db.query(Quiz).filter(Quiz.topic_id == tid).first()
+        all_question_quiz_ids = {
+            q.quiz_id for q in db.query(Question).all()
+            if db.query(Quiz).filter(Quiz.id == q.quiz_id, Quiz.topic_id == tid).first()
+        }
+        assert all_question_quiz_ids == {new_quiz.id}
+
+    def test_quiz_regeneration_no_orphan_questions(self, db):
+        """No Question rows referencing a deleted Quiz must remain."""
+        _, _, topics = _make_hierarchy(db)
+        tid = topics[0].id
+        c = _make_client(db, _mock_ds_quiz())
+        # Three generations
+        for _ in range(3):
+            c.post(TOPIC_QUIZ_ENDPOINT.format(tid))
+        quiz_count = db.query(Quiz).filter(Quiz.topic_id == tid).count()
+        assert quiz_count == 1
+        # Every question in the DB for this topic's quiz must reference the one quiz
+        final_quiz = db.query(Quiz).filter(Quiz.topic_id == tid).first()
+        questions = db.query(Question).filter(Question.quiz_id == final_quiz.id).all()
+        assert len(questions) == 2  # _MOCK_QUIZ_DATA has 2 questions
+
+    def test_revision_regeneration_exactly_one_row(self, db):
+        """Generate revision twice — only one revision Content row must exist."""
+        course, _, _ = _make_hierarchy(db)
+        c = _make_client(db, _mock_ds_revision())
+        c.post(COURSE_REVISION_ENDPOINT.format(course.id))
+        first_revision_id = db.query(Content).filter(
+            Content.course_id == course.id, Content.content_type == "revision"
+        ).first().id
+        c.post(COURSE_REVISION_ENDPOINT.format(course.id))
+        revisions = db.query(Content).filter(
+            Content.course_id == course.id, Content.content_type == "revision"
+        ).all()
+        assert len(revisions) == 1, f"Expected 1 revision row, got {len(revisions)}"
+        assert revisions[0].id != first_revision_id
+
+    def test_revision_anchored_by_course_id_not_topic(self, db):
+        """Revision must be stored with course_id set and topic_id NULL."""
+        course, _, _ = _make_hierarchy(db)
+        c = _make_client(db, _mock_ds_revision())
+        c.post(COURSE_REVISION_ENDPOINT.format(course.id))
+        rev = db.query(Content).filter(
+            Content.course_id == course.id, Content.content_type == "revision"
+        ).first()
+        assert rev is not None
+        assert rev.course_id == course.id
+        assert rev.topic_id is None
+
+    def test_revision_deletion_of_first_topic_does_not_affect_revision(self, db):
+        """Deleting the first topic must NOT cascade-delete the course revision."""
+        course, module, topics = _make_hierarchy(db)
+        c = _make_client(db, _mock_ds_revision())
+        c.post(COURSE_REVISION_ENDPOINT.format(course.id))
+        # Delete the first topic directly
+        first_topic = topics[0]
+        db.delete(first_topic)
+        db.flush()
+        # Revision must still be present
+        rev = db.query(Content).filter(
+            Content.course_id == course.id, Content.content_type == "revision"
+        ).first()
+        assert rev is not None, "Revision was cascade-deleted when first topic was removed"
+
+
+# ─────────────────────────────────────────────────────────────────────────────
+# Rollback safety tests
+# ─────────────────────────────────────────────────────────────────────────────
+
+class TestRollbackSafety:
+    """Verify that a failed regeneration leaves the old data intact."""
+
+    def test_content_rollback_preserves_old_content(self, db):
+        """If DeepSeek fails during regeneration, the old Content row must survive."""
+        _, _, topics = _make_hierarchy(db)
+        tid = topics[0].id
+
+        # 1. Generate good content first
+        c_ok = _make_client(db, _mock_ds_content())
+        c_ok.post(TOPIC_CONTENT_ENDPOINT.format(tid))
+        db.flush()
+        original_id = db.query(Content).filter(
+            Content.topic_id == tid, Content.content_type == "lecture"
+        ).first().id
+
+        # 2. Simulate a DeepSeek failure on the second call.
+        # The route raises HTTPException before touching the DB (AI call precedes DELETE),
+        # so the old row must remain unchanged.
+        mock_fail = MagicMock()
+        mock_fail.generate_topic_content.side_effect = RuntimeError("network down")
+        c_fail = _make_client(db, mock_fail)
+        resp = c_fail.post(TOPIC_CONTENT_ENDPOINT.format(tid))
+        assert resp.status_code == 502
+
+        # 3. Old row must still be there
+        surviving = db.query(Content).filter(
+            Content.topic_id == tid, Content.content_type == "lecture"
+        ).all()
+        assert len(surviving) == 1
+        assert surviving[0].id == original_id
+
+    def test_quiz_rollback_preserves_old_quiz(self, db):
+        """If DeepSeek fails during quiz regeneration, old Quiz+Questions survive."""
+        _, _, topics = _make_hierarchy(db)
+        tid = topics[0].id
+
+        # 1. Generate a good quiz
+        c_ok = _make_client(db, _mock_ds_quiz())
+        c_ok.post(TOPIC_QUIZ_ENDPOINT.format(tid))
+        db.flush()
+        original_quiz_id = db.query(Quiz).filter(Quiz.topic_id == tid).first().id
+        original_q_count = db.query(Question).filter(
+            Question.quiz_id == original_quiz_id
+        ).count()
+        assert original_q_count == 2
+
+        # 2. Fail on regeneration (AI call fails BEFORE any DELETE)
+        mock_fail = MagicMock()
+        mock_fail.generate_quiz.side_effect = RuntimeError("timeout")
+        c_fail = _make_client(db, mock_fail)
+        resp = c_fail.post(TOPIC_QUIZ_ENDPOINT.format(tid))
+        assert resp.status_code == 502
+
+        # 3. Old quiz and questions must still be intact
+        quiz = db.query(Quiz).filter(Quiz.topic_id == tid).first()
+        assert quiz is not None
+        assert quiz.id == original_quiz_id
+        q_count = db.query(Question).filter(Question.quiz_id == original_quiz_id).count()
+        assert q_count == original_q_count
+
+    def test_revision_rollback_preserves_old_revision(self, db):
+        """If DeepSeek fails during revision regeneration, old revision survives."""
+        course, _, _ = _make_hierarchy(db)
+
+        # 1. Generate good revision
+        c_ok = _make_client(db, _mock_ds_revision())
+        c_ok.post(COURSE_REVISION_ENDPOINT.format(course.id))
+        db.flush()
+        original_rev_id = db.query(Content).filter(
+            Content.course_id == course.id, Content.content_type == "revision"
+        ).first().id
+
+        # 2. Fail on regeneration
+        mock_fail = MagicMock()
+        mock_fail.generate_revision.side_effect = RuntimeError("timeout")
+        c_fail = _make_client(db, mock_fail)
+        resp = c_fail.post(COURSE_REVISION_ENDPOINT.format(course.id))
+        assert resp.status_code == 502
+
+        # 3. Old revision must still be present
+        revisions = db.query(Content).filter(
+            Content.course_id == course.id, Content.content_type == "revision"
+        ).all()
+        assert len(revisions) == 1
+        assert revisions[0].id == original_rev_id
+
+
+# ─────────────────────────────────────────────────────────────────────────────
+# Course structure repeat-generate test
+# ─────────────────────────────────────────────────────────────────────────────
+
+class TestCourseStructureRepeatGenerate:
+    """
+    POST /api/v1/courses/generate is intentionally idempotent-free:
+    each call creates a NEW course rather than overwriting an existing one.
+    """
+
+    def test_repeated_generate_creates_separate_courses(self, db):
+        """Two identical generate calls must create two distinct Course rows."""
+        from backend.app.services.deepseek_client import DeepSeekClient, get_deepseek_client
+        from backend.app.schemas.generate import GenerateCourseRequest
+        from backend.database.models import User
+        import uuid as _uuid
+
+        # Seed a user
+        user = User(
+            id=_uuid.uuid4(),
+            name="Prof",
+            email=f"prof2_{_uuid.uuid4().hex[:6]}@test.com",
+            role="instructor",
+        )
+        db.add(user)
+        db.flush()
+
+        _MODULES = {
+            "modules": [
+                {
+                    "title": "Module A",
+                    "description": "Desc A",
+                    "topics": [
+                        {"title": "Topic 1", "description": "T1"},
+                        {"title": "Topic 2", "description": "T2"},
+                    ],
+                }
+            ]
+        }
+
+        mock_openai = MagicMock()
+        mock_message = MagicMock()
+        mock_message.content = json.dumps(_MODULES)
+        mock_choice = MagicMock()
+        mock_choice.message = mock_message
+        mock_response = MagicMock()
+        mock_response.choices = [mock_choice]
+        mock_openai.chat.completions.create.return_value = mock_response
+
+        from backend.app.config import Settings
+        ds = DeepSeekClient(settings=Settings(deepseek_api_key="test", app_env="development"))
+        ds._client = mock_openai
+
+        def _override_db():
+            yield db
+
+        app.dependency_overrides[get_db] = _override_db
+        app.dependency_overrides[get_deepseek_client] = lambda: ds
+        client = TestClient(app, raise_server_exceptions=True)
+
+        payload = {
+            "title": "Python 101",
+            "syllabus_text": "Week 1: intro. Week 2: data types. Week 3: functions.",
+            "owner_id": str(user.id),
+        }
+        r1 = client.post("/api/v1/courses/generate", json=payload)
+        r2 = client.post("/api/v1/courses/generate", json=payload)
+
+        assert r1.status_code == 201, r1.text
+        assert r2.status_code == 201, r2.text
+        assert r1.json()["course_id"] != r2.json()["course_id"], \
+            "Two generate calls must produce two distinct courses"
+
+        # Both courses must be independently queryable
+        from backend.database.models import Course
+        courses = db.query(Course).filter(Course.owner_id == user.id).all()
+        assert len(courses) == 2

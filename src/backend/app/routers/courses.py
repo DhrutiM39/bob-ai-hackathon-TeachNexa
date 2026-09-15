@@ -22,14 +22,16 @@ from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy import func
 from sqlalchemy.orm import Session, joinedload
 
-from backend.app.schemas import (
+from backend.app.schemas.courses import (
     CourseDetail,
     CourseListItem,
     CoursesListResponse,
-    GenerateCourseRequest,
-    GenerateCourseResponse,
     ModuleOut,
     TopicOut,
+)
+from backend.app.schemas.generate import (
+    GenerateCourseRequest,
+    GenerateCourseResponse,
 )
 from backend.app.services.deepseek_client import DeepSeekClient, get_deepseek_client
 from backend.database.models import Course, Module, Topic

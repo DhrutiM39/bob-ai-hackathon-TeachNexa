@@ -16,7 +16,7 @@ export default function GenerationProgress({ currentStage, completedStages = [],
     <div className={styles.wrapper} aria-label="Course generation progress">
       <div className={styles.header}>
         <h2 className={styles.title}>Generating your course…</h2>
-        <p className={styles.subtitle}>IBM watsonx.ai is analyzing your syllabus and building a structured course.</p>
+        <p className={styles.subtitle}>DeepSeek AI is analyzing your syllabus and building a structured course.</p>
       </div>
 
       {/* Screen-reader live region */}

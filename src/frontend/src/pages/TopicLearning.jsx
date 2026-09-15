@@ -101,7 +101,7 @@ export default function TopicLearning() {
             <EmptyState
               icon="📖"
               title="Content not yet generated"
-              description="Click 'Generate Content' to let IBM watsonx.ai create learning material for this topic."
+              description="Click 'Generate Content' to let DeepSeek AI create learning material for this topic."
               actionLabel="Generate Content"
               onAction={handleGenerate}
             />

@@ -46,10 +46,11 @@ CourseGenie AI is an AI-powered professor assistant that transforms a course syl
 | Category | Technologies |
 |---|---|
 | **Languages** | Python, JavaScript |
-| **Frameworks** | React, FastAPI |
-| **AI Provider** | DeepSeek AI (OpenAI-compatible API) |
-| **Databases** | PostgreSQL |
-| **Other** | Git, GitHub, REST APIs, Alembic, SQLAlchemy |
+| **Frontend** | React 18, Vite 5, React Router v6, TanStack Query v5, Zustand, Axios |
+| **Backend** | FastAPI, SQLAlchemy, Alembic, pydantic-settings |
+| **AI Provider** | DeepSeek AI (OpenAI-compatible API via `openai` SDK) |
+| **Database** | PostgreSQL |
+| **Dev Tooling** | IBM Bob (AI-assisted development environment), Git, GitHub |
 
 ---
 
@@ -73,22 +74,32 @@ CourseGenie AI is an AI-powered professor assistant that transforms a course syl
 
 ## ⚡ How to Run
 
-> **Copy these exact steps from your [`docs/setup-guide.md`](docs/setup-guide.md)**
+> Full step-by-step instructions: [`docs/setup-guide.md`](docs/setup-guide.md)
 
 ```bash
-# 1. Clone the repo
-git clone https://github.com/[your-repo].git
-cd [your-repo]
+# 1. Install Python deps
+python -m venv .venv && .venv\Scripts\Activate.ps1   # Windows
+# source .venv/bin/activate                           # macOS/Linux
+pip install -r src/backend/requirements.txt
 
-# 2. Install dependencies
-[your install command here]
+# 2. Configure environment
+cp src/.env.example src/.env
+# Edit src/.env — set DEEPSEEK_API_KEY and DATABASE_URL
 
-# 3. Configure environment
-cp .env.example .env
-# Edit .env with your values
+# 3. Start PostgreSQL (Docker)
+docker run -d --name coursegenie-db \
+  -e POSTGRES_USER=coursegenie -e POSTGRES_PASSWORD=changeme \
+  -e POSTGRES_DB=coursegenie -p 5432:5432 postgres:15-alpine
 
-# 4. Run the project
-[your run command here]
+# 4. Run migrations + seed demo user
+alembic -c src/backend/alembic.ini upgrade head
+
+# 5. Start backend
+uvicorn backend.app.main:app --reload --port 8000 --app-dir src
+
+# 6. Start frontend (new terminal)
+cd src/frontend && npm install && npm run dev
+# Open http://localhost:3000
 ```
 
 ---
@@ -106,16 +117,15 @@ cp .env.example .env
 
 ## ⚠️ Known Limitations
 
-> Be honest — judges appreciate transparency over overclaiming.
-
-- [Limitation 1: e.g., "Authentication is mocked — not production-ready"]
-- [Limitation 2: e.g., "Only tested on Chrome"]
-- [Limitation 3: e.g., "Feature X is scaffolded but not fully implemented"]
+- Authentication is not yet implemented — a fixed demo `owner_id` UUID is used until auth is added.
+- File-upload syllabus parsing (PDF/DOCX) reads the raw bytes; rich text extraction is not implemented.
+- Content generation can take 10–30 seconds per topic depending on DeepSeek API latency.
+- No production deployment — the app runs locally; no IBM Cloud or other cloud hosting is configured.
 
 ---
 
 ## 🏅 What We're Most Proud Of
 
-[Tell the judges what part of your submission is strongest and worth paying close attention to.]
+We are most proud of building a fully wired end-to-end pipeline — from a plain syllabus paste to a browsable course with per-topic content, quizzes, and revision materials — with every generation operation guaranteed to replace (not duplicate) old rows, proven by 148 passing tests covering replacement, rollback safety, and constraint enforcement.
 
 ---

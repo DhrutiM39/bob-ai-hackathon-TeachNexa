@@ -48,11 +48,27 @@ submission:
     - "Professor AI assistant for automating course-content and assessment creation"                             # optional 5th
 
   tech_stack:
-    languages: ["Python", "JavaScript"]                      # REQUIRED — e.g., ["Python", "TypeScript"]
-    frameworks: ["React", "FastAPI"]                     # e.g., ["FastAPI", "React"]
-    ibm_technologies: ["IBM watsonx.ai", "IBM Cloud"]               # e.g., ["watsonx.ai", "IBM Bob", "IBM Cloud Functions"]
-    databases: ["PostgreSQL"]                      # e.g., ["PostgreSQL", "Redis"]
-    other: ["Git", "GitHub", "REST APIs"]                          # e.g., ["Docker", "GitHub Actions", "Slack API"]
+    languages:
+      - "Python"
+      - "JavaScript"
+    frameworks:
+      - "React 18"
+      - "FastAPI"
+      - "TanStack Query v5"
+      - "Zustand"
+      - "React Router v6"
+    ibm_technologies: []       # IBM Bob used as AI-assisted development environment only — not a runtime dependency
+    databases:
+      - "PostgreSQL"
+    other:
+      - "DeepSeek AI"
+      - "OpenAI SDK"
+      - "SQLAlchemy"
+      - "Alembic"
+      - "Vite 5"
+      - "Axios"
+      - "Git"
+      - "GitHub"
 
   what_we_are_most_proud_of: >         # Optional but recommended — guides judges to your best work
     We are most proud of building CourseGenie AI as a unified professor

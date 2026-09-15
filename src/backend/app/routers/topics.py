@@ -25,6 +25,7 @@ import uuid
 from datetime import datetime, timezone
 
 from fastapi import APIRouter, Depends, HTTPException, status
+from sqlalchemy import delete as sql_delete
 from sqlalchemy.orm import Session, joinedload
 
 from backend.app.schemas import (
@@ -317,11 +318,14 @@ def generate_topic_quiz(
         logger.error("DeepSeek quiz generation failed: %s", exc)
         raise HTTPException(status_code=status.HTTP_502_BAD_GATEWAY, detail=str(exc))
 
-    # Delete any existing quizzes for this topic
-    existing_quizzes = db.query(Quiz).filter(Quiz.topic_id == topic.id).all()
-    for eq in existing_quizzes:
-        db.delete(eq)
-    db.flush()
+    # Delete any existing quizzes (and their questions via bulk DELETE to avoid N+1)
+    existing_quiz_ids = [
+        row[0] for row in db.query(Quiz.id).filter(Quiz.topic_id == topic.id).all()
+    ]
+    if existing_quiz_ids:
+        db.execute(sql_delete(Question).where(Question.quiz_id.in_(existing_quiz_ids)))
+        db.execute(sql_delete(Quiz).where(Quiz.id.in_(existing_quiz_ids)))
+        db.flush()
 
     quiz_row = Quiz(
         id=uuid.uuid4(),
@@ -472,7 +476,7 @@ def generate_course_revision(
 ) -> RevisionResponse:
     """
     Generate revision materials (quick notes, takeaways, question bank) for a whole course.
-    Stores the result as a Content row with content_type='revision' under the first topic.
+    Stores the result as a Content row with content_type='revision' anchored by course_id.
     Returns the RevisionResponse.
     """
     course = _get_course_or_404(db, course_id)
@@ -489,37 +493,21 @@ def generate_course_revision(
         logger.error("DeepSeek revision generation failed: %s", exc)
         raise HTTPException(status_code=status.HTTP_502_BAD_GATEWAY, detail=str(exc))
 
-    # Store revision as a special Content row at the course level.
-    # We use a sentinel topic_id approach: store under the first topic found,
-    # but use content_type="revision" to distinguish it. The revision endpoint
-    # retrieves it by course_id via a join.
-    # Find all topic IDs for this course for the lookup
-    all_topic_ids = [
-        t.id
-        for m in course.modules
-        for t in m.topics
-    ]
-
-    if not all_topic_ids:
-        raise HTTPException(
-            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
-            detail="Course has no topics — cannot generate revision materials.",
-        )
-
-    # Delete existing revision rows for this course
+    # Delete existing revision rows for this course (by course_id — no topic anchor)
     db.query(Content).filter(
-        Content.topic_id.in_(all_topic_ids),
+        Content.course_id == course.id,
         Content.content_type == _REVISION_CONTENT_TYPE,
     ).delete(synchronize_session=False)
     db.flush()
 
-    # Store revision data under the first topic (arbitrary anchor)
+    # Store revision anchored directly on the course — topic_id left NULL
     revision_row = Content(
         id=uuid.uuid4(),
-        topic_id=all_topic_ids[0],
+        topic_id=None,
+        course_id=course.id,
         content_type=_REVISION_CONTENT_TYPE,
         title=f"Revision: {course.title}",
-        body=json.dumps({**revision_data, "_course_id": str(course.id)}),
+        body=json.dumps(revision_data),
         model_name=model_used,
     )
     db.add(revision_row)
@@ -551,17 +539,10 @@ def get_course_revision(
     """Return the most recently generated revision materials for a course."""
     course = _get_course_or_404(db, course_id)
 
-    all_topic_ids = [t.id for m in course.modules for t in m.topics]
-    if not all_topic_ids:
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND,
-            detail="Course has no topics.",
-        )
-
     revision_content = (
         db.query(Content)
         .filter(
-            Content.topic_id.in_(all_topic_ids),
+            Content.course_id == course.id,
             Content.content_type == _REVISION_CONTENT_TYPE,
         )
         .order_by(Content.created_at.desc())

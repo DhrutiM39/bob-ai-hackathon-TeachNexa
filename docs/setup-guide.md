@@ -206,7 +206,6 @@ src/
         deepseek_client.py  ← DeepSeek AI wrapper (OpenAI-compatible)
                                generate_course_structure(), generate_topic_content(),
                                generate_quiz(), generate_revision()
-        watsonx_client.py   ← UNUSED — kept for reference only
         syllabus_service.py ← Syllabus processing logic
       schemas/
         courses.py      ← CourseListItem, CourseDetail, CoursesListResponse

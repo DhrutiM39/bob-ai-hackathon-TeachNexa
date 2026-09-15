@@ -35,7 +35,7 @@ export default function Dashboard() {
             Welcome to <span className={styles.accent}>CourseGenie AI</span>
           </h1>
           <p className={styles.welcomeSubtitle}>
-            Transform your college syllabus into a complete, structured course — powered by IBM watsonx.ai.
+            Transform your college syllabus into a complete, structured course — powered by DeepSeek AI.
           </p>
         </div>
         <Button
