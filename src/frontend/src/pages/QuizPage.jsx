@@ -82,6 +82,18 @@ export default function QuizPage() {
     );
   }
 
+  // After regeneration, reset quiz-taking state so the professor
+  // sees the new quiz from the beginning.
+  const handleRegenerate = () => {
+    generate.mutate(undefined, {
+      onSuccess: () => {
+        setAnswers({});
+        setSubmitted(false);
+        setCurrentIdx(0);
+      },
+    });
+  };
+
   return (
     <div className={styles.page}>
       <PageHeader
@@ -95,7 +107,25 @@ export default function QuizPage() {
             <span aria-current="page">Quiz</span>
           </>
         }
+        actions={
+          <Button
+            variant="secondary"
+            size="sm"
+            onClick={handleRegenerate}
+            loading={generate.isPending}
+            disabled={generate.isPending}
+          >
+            ↺ Regenerate Quiz
+          </Button>
+        }
       />
+      {generate.isError && (
+        <ErrorState
+          title="Regeneration failed"
+          message={generate.error?.message}
+          onRetry={handleRegenerate}
+        />
+      )}
 
       {/* Score screen */}
       {submitted && (
