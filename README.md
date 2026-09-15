@@ -11,8 +11,8 @@
 - [x] Repository is Public
 - [x] Official IBM Bobathon template has been used (based on template: [drijesh-ppatel/bob-ai-hackathon-submission-template](https://github.com/drijesh-ppatel/bob-ai-hackathon-submission-template))
 - [x] Required files and project materials are uploaded (README.md, submission.yaml, docs/, demo/, src/, presentation/)
-- [ ] Project / Application is ready (verify app runs locally or deploy)
-- [ ] Demo is ready (live demo not deployed; demo/demo-video-link.txt updated)
+- [x] Project / Application is ready (full FastAPI + React 18 app in src/ — run locally via docs/setup-guide.md)
+- [x] Demo is ready (demo video: https://youtu.be/9IWFERDq-9Q · 15 screenshots in demo/screenshots/)
 - [x] Validate Submission is successful
 - [x] GitHub → Actions shows GREEN 🟢
 - [x] Your GitHub Repository URL is ready
