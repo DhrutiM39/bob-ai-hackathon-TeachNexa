@@ -60,7 +60,7 @@ app = FastAPI(
     description=(
         "AI-powered professor assistant that transforms a syllabus "
         "into a complete, structured learning experience. "
-        "Powered by DeepSeek AI and PostgreSQL."
+        "Powered by Google Gemini AI and PostgreSQL."
     ),
     docs_url="/docs",
     redoc_url="/redoc",
