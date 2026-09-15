@@ -1,6 +1,7 @@
 export const ROUTES = {
   DASHBOARD: '/',
   CREATE_COURSE: '/create',
+  COURSE_MODULES: (id) => `/courses/${id}/modules`,
   COURSE_OVERVIEW: (id) => `/courses/${id}`,
   TOPIC_LEARNING: (courseId, topicId) => `/courses/${courseId}/topics/${topicId}`,
   QUIZ: (courseId, topicId) => `/courses/${courseId}/topics/${topicId}/quiz`,

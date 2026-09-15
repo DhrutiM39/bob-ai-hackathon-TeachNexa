@@ -1,41 +1,34 @@
 import React, { useState } from 'react';
-import { Link, useParams, useNavigate, useSearchParams } from 'react-router-dom';
-import styles from './CourseOverview.module.css';
+import { Link, useParams, useNavigate } from 'react-router-dom';
+import styles from './CourseModules.module.css';
 import { useCourse, useUpdateCourse } from '../hooks/useCourses.js';
 import { ROUTES } from '../constants/index.js';
-import { computeProgress, pluralize } from '../utils/index.js';
 import ModuleCard from '../components/course/ModuleCard.jsx';
-import CourseProgress from '../components/course/CourseProgress.jsx';
 import StepIndicator from '../components/common/StepIndicator.jsx';
 import Button from '../components/common/Button.jsx';
 import Modal from '../components/common/Modal.jsx';
 import LoadingState from '../components/common/LoadingState.jsx';
 import ErrorState from '../components/common/ErrorState.jsx';
-import EmptyState from '../components/common/EmptyState.jsx';
 import Skeleton from '../components/common/Skeleton.jsx';
 import PageHeader from '../components/layout/PageHeader.jsx';
 
-function CourseSkeleton() {
+function ModulesSkeleton() {
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-4)' }}>
-      <Skeleton height="60px" />
       {[1, 2, 3].map((i) => <Skeleton key={i} height="80px" />)}
     </div>
   );
 }
 
-export default function CourseOverview() {
+export default function CourseModules() {
   const { courseId } = useParams();
   const navigate = useNavigate();
-  const [searchParams] = useSearchParams();
-  // Show the 3-step indicator when arriving from the creation workflow
-  const showWorkflowStep = searchParams.get('from') === 'modules' || searchParams.has('workflow');
   const { data: course, isLoading, isError, error, refetch } = useCourse(courseId);
   const updateCourse = useUpdateCourse(courseId);
 
-  const [editOpen, setEditOpen] = useState(false);
+  const [editOpen, setEditOpen]   = useState(false);
   const [editTitle, setEditTitle] = useState('');
-  const [editDesc, setEditDesc] = useState('');
+  const [editDesc, setEditDesc]   = useState('');
   const [editError, setEditError] = useState('');
 
   const openEdit = () => {
@@ -57,84 +50,110 @@ export default function CourseOverview() {
     );
   };
 
-  if (isLoading) return <CourseSkeleton />;
-  if (isError) return <ErrorState title="Couldn't load course" message={error?.message} onRetry={refetch} />;
-  if (!course) return <EmptyState icon="📚" title="Course not found" description="This course doesn't exist or was removed." actionLabel="Go to Dashboard" onAction={() => navigate(ROUTES.DASHBOARD)} />;
+  if (isLoading) return (
+    <div className={styles.page}>
+      <StepIndicator currentStep={2} />
+      <ModulesSkeleton />
+    </div>
+  );
 
-  const progress = computeProgress(course.completedTopics, course.totalTopics);
+  if (isError) return (
+    <div className={styles.page}>
+      <StepIndicator currentStep={2} />
+      <ErrorState title="Couldn't load course" message={error?.message} onRetry={refetch} />
+    </div>
+  );
+
+  const totalModules = course?.modules?.length ?? 0;
+  const totalTopics  = course?.modules?.reduce((n, m) => n + (m.topics?.length ?? 0), 0) ?? 0;
 
   return (
     <div className={styles.page}>
-      {showWorkflowStep && <StepIndicator currentStep={3} />}
+      {/* ── Workflow progress ── */}
+      <StepIndicator currentStep={2} />
+
       <PageHeader
-        title={course.title}
-        subtitle={course.description}
+        title={course?.title ?? 'Module Review'}
+        subtitle="Step 2 of 3 — Review and edit the AI-generated modules and topics before continuing to learning content."
         breadcrumb={
           <>
             <Link to={ROUTES.DASHBOARD}>Dashboard</Link>
             <span aria-hidden="true">›</span>
-            <span aria-current="page">{course.title}</span>
+            <Link to={ROUTES.CREATE_COURSE}>Create Course</Link>
+            <span aria-hidden="true">›</span>
+            <span aria-current="page">Module Review</span>
           </>
         }
         actions={
-          <div style={{ display: 'flex', gap: 'var(--space-2)' }}>
-            <Button variant="ghost" size="sm" onClick={openEdit} aria-label="Edit course">
-              ✎ Edit
-            </Button>
-            <Button variant="secondary" size="sm" onClick={() => navigate(ROUTES.REVISION(courseId))}>
-              Revision Center
+          <div style={{ display: 'flex', gap: 'var(--space-2)', flexWrap: 'wrap' }}>
+            <Button variant="ghost" size="sm" onClick={openEdit} aria-label="Edit course title">
+              ✎ Edit Course
             </Button>
           </div>
         }
       />
 
-      {/* Course stats bar */}
-      <div className={styles.statsBar}>
+      {/* ── Stats strip ── */}
+      <div className={styles.statsStrip}>
         <div className={styles.stat}>
-          <span className={styles.statValue}>{course.modules?.length ?? 0}</span>
+          <span className={styles.statVal}>{totalModules}</span>
           <span className={styles.statLabel}>Modules</span>
         </div>
         <div className={styles.stat}>
-          <span className={styles.statValue}>{course.totalTopics}</span>
+          <span className={styles.statVal}>{totalTopics}</span>
           <span className={styles.statLabel}>Topics</span>
         </div>
-        <div className={styles.stat}>
-          <span className={styles.statValue}>{course.completedTopics}</span>
-          <span className={styles.statLabel}>Completed</span>
-        </div>
-        <div className={`${styles.stat} ${styles.statProgress}`}>
-          <span className={styles.statValue}>{progress}%</span>
-          <span className={styles.statLabel}>Progress</span>
-        </div>
-        <div className={styles.progressWide}>
-          <CourseProgress value={progress} size="md" />
+        <div className={styles.statHint}>
+          <span>✎ Click the pencil icon on any module or topic to edit its title and description.</span>
         </div>
       </div>
 
-      {/* Modules list */}
-      <section aria-label="Course modules">
-        {course.modules?.length === 0 ? (
-          <EmptyState icon="🧩" title="No modules yet" description="Modules will appear once course generation is complete." />
+      {/* ── Module list (reuses existing ModuleCard with inline edit) ── */}
+      <section aria-label="Generated modules">
+        {totalModules === 0 ? (
+          <div className={styles.empty}>
+            <p>No modules were generated. Try going back and providing more detailed syllabus content.</p>
+            <Button variant="secondary" onClick={() => navigate(ROUTES.CREATE_COURSE)} style={{ marginTop: 'var(--space-4)' }}>
+              ← Back to Syllabus
+            </Button>
+          </div>
         ) : (
-          course.modules?.map((module) => (
+          course.modules.map((module) => (
             <ModuleCard key={module.id} module={module} courseId={courseId} />
           ))
         )}
       </section>
 
-      {/* Edit course modal */}
+      {/* ── CTA: continue to Step 3 ── */}
+      {totalModules > 0 && (
+        <div className={styles.ctaRow}>
+          <Button variant="secondary" size="md" onClick={() => navigate(ROUTES.CREATE_COURSE)}>
+            ← Back to Syllabus
+          </Button>
+          <div className={styles.ctaRight}>
+            <p className={styles.ctaHint}>
+              Happy with the structure? Continue to generate learning content.
+            </p>
+            <Button
+              variant="primary"
+              size="lg"
+              onClick={() => navigate(ROUTES.COURSE_OVERVIEW(courseId) + '?from=modules')}
+            >
+              Continue to Learning Content →
+            </Button>
+          </div>
+        </div>
+      )}
+
+      {/* ── Edit course modal ── */}
       <Modal
         isOpen={editOpen}
         onClose={() => setEditOpen(false)}
         title="Edit Course"
         footer={
           <>
-            <Button variant="secondary" onClick={() => setEditOpen(false)} disabled={updateCourse.isPending}>
-              Cancel
-            </Button>
-            <Button variant="primary" onClick={handleSave} loading={updateCourse.isPending}>
-              Save
-            </Button>
+            <Button variant="secondary" onClick={() => setEditOpen(false)} disabled={updateCourse.isPending}>Cancel</Button>
+            <Button variant="primary" onClick={handleSave} loading={updateCourse.isPending}>Save</Button>
           </>
         }
       >

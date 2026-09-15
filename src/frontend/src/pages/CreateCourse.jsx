@@ -9,6 +9,7 @@ import { adaptCourse } from '../services/adapters/courseAdapter.js';
 import { extractSyllabusText } from '../utils/extractSyllabusText.js';
 import FileUploader from '../components/syllabus/FileUploader.jsx';
 import GenerationProgress from '../components/syllabus/GenerationProgress.jsx';
+import StepIndicator from '../components/common/StepIndicator.jsx';
 import Button from '../components/common/Button.jsx';
 import PageHeader from '../components/layout/PageHeader.jsx';
 
@@ -41,20 +42,15 @@ export default function CreateCourse() {
       const mockId = 'mock-cs101';
       store.finishGeneration(mockId);
       await delay(600);
-      navigate(ROUTES.COURSE_OVERVIEW(mockId));
+      navigate(ROUTES.COURSE_MODULES(mockId));
       return;
     }
 
     try {
       // ── Resolve the syllabus text ─────────────────────────────────────────
-      // Priority: typed/pasted text > uploaded file content.
-      // File extraction runs before the progress animation so any extraction
-      // error is surfaced immediately without entering the loading screen.
       let syllabusText = store.syllabusText.trim();
 
       if (!syllabusText && store.syllabusFile) {
-        // extractSyllabusText rejects with a descriptive Error for unsupported
-        // file types (PDF, DOC, DOCX) — that error surfaces via failGeneration.
         syllabusText = await extractSyllabusText(store.syllabusFile);
       }
 
@@ -68,7 +64,6 @@ export default function CreateCourse() {
       store.advanceStage('organizing');
 
       // Real API call — POST /api/v1/courses/generate
-      // owner_id is assigned server-side; we do not send it.
       const courseData = await generateCourse({
         title: store.courseTitle,
         syllabus_text: syllabusText,
@@ -81,7 +76,9 @@ export default function CreateCourse() {
       queryClient.invalidateQueries({ queryKey: ['courses'] });
       store.finishGeneration(course.id);
       await delay(600);
-      navigate(ROUTES.COURSE_OVERVIEW(course.id));
+
+      // Step 1 done → go to Step 2 (Module Review)
+      navigate(ROUTES.COURSE_MODULES(course.id));
     } catch (err) {
       store.failGeneration(err.message || 'Generation failed. Please try again.');
     }
@@ -106,6 +103,7 @@ export default function CreateCourse() {
   if (store.isGenerating || store.generatedCourseId) {
     return (
       <div className={styles.page}>
+        <StepIndicator currentStep={1} />
         <GenerationProgress
           currentStage={store.currentStage}
           completedStages={store.completedStages}
@@ -122,9 +120,12 @@ export default function CreateCourse() {
 
   return (
     <div className={styles.page}>
+      {/* Workflow progress bar */}
+      <StepIndicator currentStep={1} />
+
       <PageHeader
         title="Create New Course"
-        subtitle="Paste your syllabus or upload a file and let AI build a complete structured course for you."
+        subtitle="Step 1 of 3 — Paste your syllabus or upload a file. AI will build a complete structured course for you."
       />
 
       {/* What AI does — explanation panel */}
@@ -225,10 +226,10 @@ export default function CreateCourse() {
 
         <div className={styles.submitRow}>
           <p className={styles.submitNote}>
-            Generation typically takes 30–90 seconds depending on syllabus length.
+            Generation typically takes 30–90 seconds. You'll review modules before continuing.
           </p>
           <Button type="submit" variant="primary" size="lg">
-            Generate Course with AI →
+            Analyze Syllabus →
           </Button>
         </div>
       </form>

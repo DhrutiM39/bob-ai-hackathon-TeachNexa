@@ -7,6 +7,7 @@ import { useAuthStore } from '../store/useAuthStore.js';
 
 const Dashboard = lazy(() => import('../pages/Dashboard.jsx'));
 const CreateCourse = lazy(() => import('../pages/CreateCourse.jsx'));
+const CourseModules = lazy(() => import('../pages/CourseModules.jsx'));
 const CourseOverview = lazy(() => import('../pages/CourseOverview.jsx'));
 const TopicLearning = lazy(() => import('../pages/TopicLearning.jsx'));
 const QuizPage = lazy(() => import('../pages/QuizPage.jsx'));
@@ -49,6 +50,7 @@ export default function App() {
             {/* Protected routes — wrapped in AppShell */}
             <Route path="/" element={<ProtectedRoute><AppShell><Dashboard /></AppShell></ProtectedRoute>} />
             <Route path="/create" element={<ProtectedRoute><AppShell><CreateCourse /></AppShell></ProtectedRoute>} />
+            <Route path="/courses/:courseId/modules" element={<ProtectedRoute><AppShell><CourseModules /></AppShell></ProtectedRoute>} />
             <Route path="/courses/:courseId" element={<ProtectedRoute><AppShell><CourseOverview /></AppShell></ProtectedRoute>} />
             <Route path="/courses/:courseId/topics/:topicId" element={<ProtectedRoute><AppShell><TopicLearning /></AppShell></ProtectedRoute>} />
             <Route path="/courses/:courseId/topics/:topicId/quiz" element={<ProtectedRoute><AppShell><QuizPage /></AppShell></ProtectedRoute>} />
