@@ -2,7 +2,7 @@
 
 ## Overview
 
-CourseGenie AI is an AI Professor Assistant that transforms a plain college syllabus into a complete, structured course — modules, topics, learning content, quizzes, and revision materials — powered by IBM watsonx.ai.
+CourseGenie AI is an AI Professor Assistant that transforms a plain college syllabus into a complete, structured course — modules, topics, learning content, quizzes, and revision materials — powered by **DeepSeek AI** (via its OpenAI-compatible API).
 
 ---
 
@@ -19,15 +19,15 @@ graph TD
         C["main.py\nFastAPI app\n+ CORS + Settings"]
         D["GET /health\nLiveness check"]
         E["POST /api/v1/syllabus\nSyllabus ingest & validation"]
-        F["Courses router\n(planned)"]
-        G["Topics router\n(planned)"]
+        F["Courses router\nGET /api/courses\nGET /api/courses/:id\nPOST /api/v1/courses/generate"]
+        G["Topics router\nPOST /api/topics/:id/generate-content\nGET  /api/topics/:id/content\nPOST /api/topics/:id/generate-quiz\nGET  /api/topics/:id/quiz\nPOST /api/courses/:id/generate-revision\nGET  /api/courses/:id/revision"]
         H["SyllabusService\nbusiness logic · ID generation"]
         I["pydantic-settings\nConfig · .env loader"]
     end
 
-    subgraph "IBM watsonx.ai"
-        J["WatsonxClient\n(planned)\nibm-watsonx-ai SDK"]
-        K["Foundation Model\n(e.g. ibm/granite-13b-instruct)"]
+    subgraph "DeepSeek AI"
+        J["DeepSeekClient\nopenai SDK (OpenAI-compatible)\ngenerate_course_structure()\ngenerate_topic_content()\ngenerate_quiz()\ngenerate_revision()"]
+        K["DeepSeek Model\n(deepseek-chat)"]
     end
 
     subgraph "Data Layer"
@@ -46,9 +46,11 @@ graph TD
     H --> I
     F --> L
     G --> L
-    G -->|"generate content\ngenerate quiz"| J
+    F -->|"generate course structure"| J
+    G -->|"generate content\ngenerate quiz\ngenerate revision"| J
     J --> K
     K -->|"structured JSON\nresponse"| J
+    J -->|"parsed result"| F
     J -->|"parsed result"| G
     L --> M
     N -.->|"schema migrations"| M
@@ -87,7 +89,7 @@ graph TD
 ### Backend — `src/backend/`
 
 **Entry point:** [`app/main.py`](../src/backend/app/main.py)  
-Instantiates the `FastAPI` app, loads settings via `get_settings()` (pydantic-settings, reads `src/.env`), and registers `api_router`.
+Instantiates the `FastAPI` app, loads settings via `get_settings()` (pydantic-settings, reads `src/.env`), and registers all routers.
 
 **Configuration:** [`app/config.py`](../src/backend/app/config.py)  
 `Settings` (Pydantic BaseSettings) — reads from environment / `.env`:
@@ -96,69 +98,116 @@ Instantiates the `FastAPI` app, loads settings via `get_settings()` (pydantic-se
 |---|---|
 | `APP_ENV` | `development` / `production` |
 | `APP_PORT` | Uvicorn port (default `8000`) |
-| `WATSONX_API_KEY` | IBM watsonx.ai credential |
-| `WATSONX_PROJECT_ID` | watsonx.ai project scope |
-| `WATSONX_URL` | Inference endpoint (default `us-south.ml.cloud.ibm.com`) |
+| `DEEPSEEK_API_KEY` | DeepSeek API credential — get one at https://platform.deepseek.com/api_keys |
+| `DEEPSEEK_MODEL` | Model to use (default `deepseek-chat`) |
 | `DATABASE_URL` | PostgreSQL DSN (default `postgresql://postgres:postgres@localhost:5432/coursegenie`) |
 
 ---
 
-### API Routes — current state
+### API Routes — implemented
 
-**Router registration** ([`app/api/__init__.py`](../src/backend/app/api/__init__.py)):
+**Router registration** ([`app/main.py`](../src/backend/app/main.py)):
 
 ```
-api_router
-├── health_router       → (no prefix)
-└── syllabus_router     → /api/v1
+app
+├── api_router          (health + syllabus)
+│   ├── GET  /health
+│   └── POST /api/v1/syllabus
+├── courses.router
+│   ├── GET  /api/courses
+│   ├── GET  /api/courses/{course_id}
+│   └── POST /api/v1/courses/generate
+└── topics.router
+    ├── POST /api/topics/{topic_id}/generate-content
+    ├── GET  /api/topics/{topic_id}/content
+    ├── POST /api/topics/{topic_id}/generate-quiz
+    ├── GET  /api/topics/{topic_id}/quiz
+    ├── POST /api/courses/{course_id}/generate-revision
+    └── GET  /api/courses/{course_id}/revision
 ```
 
 #### `GET /health`
-Returns liveness status. Used by orchestrators and the frontend health-check.
+Returns liveness status.
 
 ```json
 { "status": "ok", "service": "CourseGenie AI" }
 ```
 
 #### `POST /api/v1/syllabus`
-Accepts a raw syllabus and returns a validated, ID-stamped record.  
-Handled by [`SyllabusService.process_syllabus()`](../src/backend/app/services/syllabus_service.py).
+Accepts a raw syllabus and returns a validated, ID-stamped record.
+
+#### `GET /api/courses`
+Returns all courses with aggregate module/topic counts.
+
+#### `GET /api/courses/{course_id}`
+Returns a single course with full module + topic hierarchy, including `has_content` and `has_quiz` flags per topic.
+
+#### `POST /api/v1/courses/generate`
+Sends the syllabus to DeepSeek, which returns a structured hierarchy of modules and topics. Persists to PostgreSQL and returns the full Course object.
 
 **Request:**
 ```json
-{ "course_name": "Intro to AI", "syllabus_text": "Week 1: Foundations..." }
+{ "title": "Intro to AI", "syllabus_text": "Week 1: ...", "owner_id": "uuid" }
 ```
 **Response `201`:**
 ```json
-{
-  "status": "accepted",
-  "syllabus_id": "cg-a3f2c91b-d4e80012",
-  "course_name": "Intro to AI",
-  "syllabus_text": "Week 1: Foundations...",
-  "character_count": 512,
-  "message": "Syllabus for 'Intro to AI' received and validated successfully."
-}
+{ "course_id": "uuid", "title": "...", "modules": [...], "model_used": "deepseek-chat" }
 ```
 
-**Planned (Milestone 3+):**
+#### `POST /api/topics/{topic_id}/generate-content`
+Generates comprehensive learning content for a topic (objectives, explanation, key concepts, examples, summary, further reading). Persists to the `content` table.
 
-| Method | Path | Purpose |
-|---|---|---|
-| `POST` | `/api/v1/course/generate` | Generate full course structure from syllabus |
-| `GET` | `/api/v1/courses` | List user's courses |
-| `GET` | `/api/v1/courses/:id` | Get single course with modules + topics |
-| `POST` | `/api/v1/topics/:id/generate-content` | Trigger watsonx.ai content generation |
-| `GET` | `/api/v1/topics/:id/content` | Fetch generated content |
-| `POST` | `/api/v1/topics/:id/generate-quiz` | Trigger quiz generation |
-| `GET` | `/api/v1/topics/:id/quiz` | Fetch quiz |
-| `POST` | `/api/v1/topics/:id/generate-revision` | Trigger revision generation |
-| `GET` | `/api/v1/courses/:id/revision` | Fetch revision center data |
+#### `GET /api/topics/{topic_id}/content`
+Returns the most recently generated content for a topic.
+
+#### `POST /api/topics/{topic_id}/generate-quiz`
+Generates a 5-question MCQ quiz. Persists Quiz + Question rows.
+
+#### `GET /api/topics/{topic_id}/quiz`
+Returns the most recently generated quiz with all questions.
+
+#### `POST /api/courses/{course_id}/generate-revision`
+Generates course-wide revision materials (quick notes, key takeaways, practice questions, question bank). Stored as a `Content` row with `content_type="revision"`.
+
+#### `GET /api/courses/{course_id}/revision`
+Returns the most recently generated revision materials for a course.
 
 ---
 
-### AI Layer — IBM watsonx.ai (planned Milestone 3)
+### AI Layer — DeepSeek AI
 
-The `WatsonxClient` will use the `ibm-watsonx-ai` Python SDK, authenticated via `WATSONX_API_KEY` + `WATSONX_PROJECT_ID`. The client will be invoked from topic/quiz/revision service functions to call a foundation model (e.g. `ibm/granite-13b-instruct`) with structured prompts and return JSON-parsed results.
+The [`DeepSeekClient`](../src/backend/app/services/deepseek_client.py) uses the `openai` Python SDK pointed at DeepSeek's OpenAI-compatible endpoint (`https://api.deepseek.com`). All four AI methods follow the same pattern:
+
+1. Build a structured prompt (with explicit JSON schema instructions)
+2. Call `client.chat.completions.create()` with low temperature
+3. Strip any markdown fences from the response
+4. Parse and validate the JSON
+5. Raise `ValueError` (→ HTTP 422) on bad structure, `RuntimeError` (→ HTTP 502) on network failure
+
+**Methods:**
+
+| Method | Purpose | Returns |
+|---|---|---|
+| `generate_course_structure(syllabus_text)` | Parse syllabus into modules/topics | `list[dict]` of modules |
+| `generate_topic_content(topic_title, topic_description, course_title)` | Rich learning content | dict with objectives, explanation, key concepts, examples, summary |
+| `generate_quiz(topic_title, topic_description, course_title)` | 5-question MCQ quiz | dict with title + questions list |
+| `generate_revision(course_title, modules_summary)` | Course-wide revision materials | dict with quick_notes, key_takeaways, practice_questions, question_bank |
+
+**AI flow:**
+
+```
+FastAPI route handler
+  → DeepSeekClient.generate_*()
+    → _PROMPT.format(...)
+    → openai.OpenAI(api_key=DEEPSEEK_API_KEY, base_url="https://api.deepseek.com")
+    → chat.completions.create(model=DEEPSEEK_MODEL, messages=[...])
+    → _extract_json(raw_response)       ← strip markdown fences
+    → json.loads(cleaned)               ← parse
+    → validate structure                ← raise ValueError if malformed
+    → return (data_dict, model_id)
+  → persist to PostgreSQL
+  → return Pydantic response model
+```
 
 ---
 
@@ -168,7 +217,7 @@ The `WatsonxClient` will use the `ibm-watsonx-ai` Python SDK, authenticated via 
 `create_engine()` reads `DATABASE_URL` from environment. Pool settings: `pool_size=5`, `max_overflow=10`, `pool_pre_ping=True`. SQLite supported for tests (no pooling, `check_same_thread=False`).
 
 **Session:** [`database/session.py`](../src/backend/database/session.py)  
-`SessionLocal` factory + `get_db()` FastAPI dependency — yields a scoped session with auto-commit/rollback.
+`SessionLocal` factory + `get_db()` FastAPI dependency — yields a scoped session with auto-commit on success, rollback on exception.
 
 **ORM Models** ([`database/models.py`](../src/backend/database/models.py)):
 
@@ -177,57 +226,75 @@ users            id (UUID PK), name, email, role, created_at
   └── courses    id (UUID PK), title, description, syllabus_text, owner_id (FK), created_at, updated_at
         └── modules    id, course_id (FK), title, description, order_no
               └── topics     id, module_id (FK), title, description, order_no
-                    ├── content    id, topic_id (FK), content_type, title, body, model_name, created_at
+                    ├── content    id, topic_id (FK), content_type, title, body (JSON), model_name, created_at
                     └── quizzes    id, topic_id (FK), title, instructions, created_at
                           └── questions    id, quiz_id (FK), question_text, question_type,
-                                          options (JSON), correct_answer, explanation, marks
+                                          options (JSONB/JSON), correct_answer, explanation, marks
 ```
 
-**Migrations:** Alembic — `migrations/versions/0001_initial.py` creates all tables. PostgreSQL uses `JSONB` for `questions.options`; SQLite falls back to plain `JSON`.
+**Migrations:** Alembic — `migrations/versions/0001_initial.py` creates all tables. PostgreSQL uses `JSONB` for `questions.options`; SQLite falls back to plain `JSON` in tests.
 
 ---
 
-## Data Flow — Syllabus → Course
+## Data Flow — Syllabus → Complete Course
 
 ```
 Professor pastes syllabus
         │
         ▼
 React CreateCourse page
-  → POST /api/v1/syllabus          (current — validates & IDs the text)
-  → POST /api/v1/course/generate   (planned — returns module/topic tree)
+  → POST /api/v1/courses/generate
         │
         ▼
 FastAPI CourseService
-  → prompt-engineering layer
-  → WatsonxClient.generate(prompt)
+  → DeepSeekClient.generate_course_structure(syllabus_text)
+  → DeepSeek API → deepseek-chat model
+  → returns validated modules/topics JSON
         │
         ▼
-IBM watsonx.ai Foundation Model
-  → returns structured JSON (modules, topics, objectives)
-        │
-        ▼
-FastAPI persists Course + Modules + Topics → PostgreSQL
-  → returns course ID
+FastAPI persists Course + Modules + Topics → PostgreSQL (single transaction)
+  → returns GenerateCourseResponse
         │
         ▼
 Frontend navigates to /courses/:courseId
   → CourseOverview renders expandable module/topic tree
         │
         ▼ (per topic, on-demand)
-POST /api/v1/topics/:id/generate-content
-POST /api/v1/topics/:id/generate-quiz
-POST /api/v1/topics/:id/generate-revision
-  → each triggers a separate watsonx.ai call
-  → results stored in content / quizzes / questions tables
-  → served to TopicLearning, QuizPage, RevisionCenter pages
+POST /api/topics/:id/generate-content
+  → DeepSeekClient.generate_topic_content()
+  → Persists to content table (content_type="lecture")
+
+POST /api/topics/:id/generate-quiz
+  → DeepSeekClient.generate_quiz()
+  → Persists Quiz row + Question rows (cascade)
+
+POST /api/courses/:id/generate-revision
+  → DeepSeekClient.generate_revision()
+  → Persists to content table (content_type="revision")
+
+Each generation: results stored → served to TopicLearning, QuizPage, RevisionCenter pages
 ```
+
+---
+
+## Error Handling
+
+| Failure | HTTP Status | Notes |
+|---|---|---|
+| Invalid UUID path param | 400 | Caught before DB query |
+| Resource not found | 404 | Topic/course/content/quiz missing |
+| Malformed AI JSON | 422 | `ValueError` from `DeepSeekClient` |
+| AI API down / network failure | 502 | `RuntimeError` from `DeepSeekClient` |
+| Pydantic validation failure | 422 | FastAPI built-in |
+| Missing required FK (owner_id) | 400 | Checked before DB write |
+
+Internal stack traces and API secrets are never exposed in HTTP responses.
 
 ---
 
 ## Security Considerations
 
-- All secrets (`WATSONX_API_KEY`, `DATABASE_URL`) are environment variables loaded from `src/.env` — this file is in `.gitignore` and never committed
+- All secrets (`DEEPSEEK_API_KEY`, `DATABASE_URL`) are environment variables loaded from `src/.env` — this file is in `.gitignore` and never committed
 - `src/.env.example` provides a safe template with no real values
 - No API keys are present in any frontend code; `VITE_API_BASE_URL` is the only frontend env var that touches the backend
 - Frontend mock mode (`VITE_USE_MOCKS=true`) is clearly labelled in the UI — mock data is never presented as real AI output
@@ -238,8 +305,8 @@ POST /api/v1/topics/:id/generate-revision
 
 ## Scalability Notes
 
-- The FastAPI backend is stateless and can be horizontally scaled behind a load balancer (e.g. IBM Code Engine, Railway)
-- IBM watsonx.ai calls are the primary latency bottleneck — each generation request can take 5–30 s; the frontend GenerationProgress component handles this with a named-stage UI rather than a spinner
-- The React frontend is a static SPA (`dist/`) deployable to any CDN (IBM Cloud Object Storage + CDN, Netlify, Vercel)
+- The FastAPI backend is stateless and can be horizontally scaled behind a load balancer
+- DeepSeek API calls are the primary latency bottleneck — each generation request can take 5–30 s; the frontend `GenerationProgress` component handles this with a named-stage UI rather than a spinner
+- The React frontend is a static SPA (`dist/`) deployable to any CDN
 - TanStack Query's 5-minute stale time prevents redundant AI re-generation calls when navigating between pages
 - Alembic migrations version the database schema independently of application deployments

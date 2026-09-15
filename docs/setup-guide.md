@@ -183,8 +183,8 @@ pytest -v
 pytest src/backend/tests/test_generate_endpoint.py -v
 ```
 
-Expected output: all four test files pass — `test_database`, `test_generate_endpoint`,
-`test_health`, and `test_syllabus`.
+Expected output: all six test files pass — `test_database`, `test_generate_endpoint`,
+`test_health`, `test_syllabus`, `test_courses`, and `test_topics`.
 
 ---
 
@@ -198,12 +198,23 @@ src/
         health.py       ← GET /health
         syllabus.py     ← POST /api/v1/syllabus
       routers/
-        courses.py      ← POST /api/v1/courses/generate
+        courses.py      ← GET /api/courses, GET /api/courses/{id}, POST /api/v1/courses/generate
+        topics.py       ← POST/GET /api/topics/{id}/generate-content, /content
+                           POST/GET /api/topics/{id}/generate-quiz, /quiz
+                           POST/GET /api/courses/{id}/generate-revision, /revision
       services/
         deepseek_client.py  ← DeepSeek AI wrapper (OpenAI-compatible)
+                               generate_course_structure(), generate_topic_content(),
+                               generate_quiz(), generate_revision()
+        watsonx_client.py   ← UNUSED — kept for reference only
         syllabus_service.py ← Syllabus processing logic
+      schemas/
+        courses.py      ← CourseListItem, CourseDetail, CoursesListResponse
+        generate.py     ← GenerateCourseRequest, GenerateCourseResponse
+        topics.py       ← TopicContentResponse, QuizResponse, RevisionResponse
       config.py         ← Settings (pydantic-settings; reads .env)
       main.py           ← FastAPI app + router registration
+      seed.py           ← Demo user seed script
     database/
       connection.py     ← SQLAlchemy engine + Base + verify_connection()
       models.py         ← ORM models: User, Course, Module, Topic, Content, Quiz, Question
@@ -213,18 +224,26 @@ src/
       versions/
         0001_initial.py ← initial schema migration
     tests/
-      conftest.py       ← pytest fixtures (in-memory SQLite engine + scoped sessions)
-      test_database.py  ← model creation, CRUD, relationship, constraint tests
-      test_generate_endpoint.py ← DeepSeekClient unit + endpoint integration tests
-      test_health.py    ← GET /health tests
-      test_syllabus.py  ← POST /api/v1/syllabus tests
+      conftest.py                ← pytest fixtures (in-memory SQLite + scoped sessions)
+      test_database.py           ← model creation, CRUD, relationship, constraint tests
+      test_generate_endpoint.py  ← DeepSeekClient unit + endpoint integration tests
+      test_health.py             ← GET /health tests
+      test_syllabus.py           ← POST /api/v1/syllabus tests
+      test_courses.py            ← GET /api/courses, GET /api/courses/{id}, POST generate tests
+      test_topics.py             ← topic content, quiz, revision endpoint tests
     requirements.txt    ← Python dependencies
     alembic.ini         ← Alembic configuration
   frontend/
     src/
-      pages/CreateCourse.jsx       ← Course creation form + generation progress
+      pages/CreateCourse.jsx          ← Course creation form + generation progress
+      pages/TopicLearning.jsx         ← Per-topic content display
+      pages/QuizPage.jsx              ← MCQ quiz with score screen
+      pages/RevisionCenter.jsx        ← Revision notes + question bank
       services/api/syllabusService.js ← generateCourse() → POST /api/v1/courses/generate
-      store/useGenerationStore.js  ← Zustand store for generation lifecycle
+      services/api/courseService.js   ← getCourses(), getCourse()
+      services/api/topicService.js    ← generateTopicContent(), getTopicContent()
+      services/api/quizService.js     ← generateQuiz(), getQuiz(), generateRevision(), getRevision()
+      store/useGenerationStore.js     ← Zustand store for generation lifecycle
 ```
 
 ---

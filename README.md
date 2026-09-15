@@ -47,9 +47,9 @@ CourseGenie AI is an AI-powered professor assistant that transforms a course syl
 |---|---|
 | **Languages** | Python, JavaScript |
 | **Frameworks** | React, FastAPI |
-| **IBM Technologies** | IBM watsonx.ai, IBM Cloud |
+| **AI Provider** | DeepSeek AI (OpenAI-compatible API) |
 | **Databases** | PostgreSQL |
-| **Other** | Git, GitHub, REST APIs |
+| **Other** | Git, GitHub, REST APIs, Alembic, SQLAlchemy |
 
 ---
 

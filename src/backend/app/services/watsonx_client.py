@@ -1,15 +1,11 @@
 """
-IBM watsonx.ai client wrapper for CourseGenie AI.
+UNUSED — kept for reference only.
 
-Responsibilities:
-  - Initialise the watsonx.ai ModelInference client from Settings.
-  - Expose a single high-level method: generate_course_structure()
-    that takes a syllabus and returns a validated list of module/topic dicts.
-  - Keep all prompt engineering, JSON extraction, and retry logic here
-    so callers never touch the SDK directly.
+This file is NOT used by the running application.  CourseGenie AI uses
+DeepSeek AI exclusively (see services/deepseek_client.py).
 
-The class is designed to be dependency-injected (see get_watsonx_client in
-this module), which makes it trivially mockable in tests.
+The actual AI provider is DeepSeek via its OpenAI-compatible API.
+ibm-watsonx-ai is NOT installed; this module is never imported at runtime.
 """
 
 from __future__ import annotations
