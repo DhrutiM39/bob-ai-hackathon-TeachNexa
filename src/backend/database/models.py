@@ -51,6 +51,7 @@ class User(Base):
     id = Column(Uuid, primary_key=True, default=uuid.uuid4, nullable=False)
     name = Column(String(255), nullable=False)
     email = Column(String(255), nullable=False)
+    password_hash = Column(String(255), nullable=True)   # NULL for legacy demo user
     role = Column(String(50), nullable=False, default="student")
     created_at = Column(DateTime(timezone=True), nullable=False, default=_now)
 

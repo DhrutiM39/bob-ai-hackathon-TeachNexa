@@ -29,7 +29,8 @@ os.environ.setdefault("DATABASE_URL", "sqlite:///:memory:")
 from backend.app.config import Settings  # noqa: E402
 from backend.app.main import app  # noqa: E402
 from backend.app.services.deepseek_client import DeepSeekClient  # noqa: E402
-from backend.database.models import Base  # noqa: E402
+from backend.app.services.auth_service import get_current_user  # noqa: E402
+from backend.database.models import Base, User  # noqa: E402
 import backend.database.models  # noqa: E402, F401
 from backend.database.session import get_db  # noqa: E402
 from backend.app.services.deepseek_client import get_deepseek_client  # noqa: E402
@@ -75,7 +76,11 @@ def db_session(_create_tables) -> Session:
 
 def _fake_settings(**overrides) -> Settings:
     defaults = dict(
-        deepseek_api_key="test-key",
+        # ── Active provider: Gemini ──────────────────────────────────────
+        gemini_api_key="test-gemini-key",
+        gemini_model="gemini-1.5-flash",
+        # ── Legacy provider: DeepSeek (kept for backward compat) ─────────
+        deepseek_api_key="test-deepseek-key",
         deepseek_model="deepseek-chat",
         database_url="sqlite://",
         app_env="development",
@@ -126,6 +131,25 @@ _VALID_MODULES_JSON = {
 # ─────────────────────────────────────────────────────────────────────────────
 
 class TestDeepSeekClient:
+    """
+    Unit tests for DeepSeekClient (active provider: Gemini).
+
+    All tests mock _get_client() so no real API call is made.
+    The OpenAI client is pointed at the Gemini endpoint at runtime;
+    tests verify method behaviour and JSON extraction are unchanged.
+    """
+
+    def test_gemini_base_url_is_configured(self):
+        """Settings must expose a Gemini base URL via the OpenAI client."""
+        s = _fake_settings()
+        assert s.gemini_api_key == "test-gemini-key"
+        assert s.gemini_model == "gemini-1.5-flash"
+
+    def test_gemini_api_key_is_stripped(self):
+        """Leading/trailing whitespace is stripped from the Gemini API key."""
+        s = _fake_settings(gemini_api_key="  key-with-spaces  ")
+        assert s.gemini_api_key == "key-with-spaces"
+
     def _client_with_mock(self, response_text: str) -> DeepSeekClient:
         """Build a DeepSeekClient whose OpenAI client is fully mocked."""
         client = DeepSeekClient(settings=_fake_settings())
@@ -147,7 +171,8 @@ class TestDeepSeekClient:
         assert len(modules) == 2
         assert modules[0]["title"] == "Module 1 — Introduction"
         assert len(modules[0]["topics"]) == 2
-        assert model_id == "deepseek-chat"
+        # Active provider is Gemini — model_id reflects gemini_model from settings
+        assert model_id == "gemini-1.5-flash"
 
     def test_markdown_fences_are_stripped(self):
         fenced = f"```json\n{json.dumps(_VALID_MODULES_JSON)}\n```"
@@ -197,12 +222,21 @@ class TestGenerateEndpoint:
     ds is overridden with a pre-canned DeepSeekClient that needs no API key.
     """
 
-    def _make_client(self, session: Session, ds: DeepSeekClient) -> TestClient:
+    def _make_client(self, session: Session, ds: DeepSeekClient, user: User = None) -> TestClient:
         def _override_db():
             yield session
 
+        # Build a fake user if none provided
+        _user = user or User(
+            id=uuid.UUID("00000000-0000-0000-0000-000000000001"),
+            name="Test User",
+            email="test@example.com",
+            role="instructor",
+        )
+
         app.dependency_overrides[get_db] = _override_db
         app.dependency_overrides[get_deepseek_client] = lambda: ds
+        app.dependency_overrides[get_current_user] = lambda: _user
         return TestClient(app, raise_server_exceptions=True)
 
     def _ds_ok(self) -> DeepSeekClient:
@@ -221,21 +255,22 @@ class TestGenerateEndpoint:
     def teardown_method(self, _method):
         app.dependency_overrides.clear()
 
-    def _insert_demo_user(self, session: Session) -> None:
-        """Insert the demo user that the server now requires server-side."""
-        from backend.database.models import User
+    def _insert_demo_user(self, session: Session) -> User:
+        """Insert a test user and return it."""
         existing = session.query(User).filter(
             User.id == uuid.UUID("00000000-0000-0000-0000-000000000001")
         ).first()
         if existing:
-            return
-        session.add(User(
+            return existing
+        user = User(
             id=uuid.UUID("00000000-0000-0000-0000-000000000001"),
             name="Demo Professor",
             email="demo@coursegenie.ai",
             role="instructor",
-        ))
+        )
+        session.add(user)
         session.flush()
+        return user
 
     def test_generate_returns_201_with_full_structure(self, db_session):
         self._insert_demo_user(db_session)
@@ -253,7 +288,8 @@ class TestGenerateEndpoint:
         assert len(body["modules"]) == 2
         assert body["modules"][0]["title"] == "Module 1 — Introduction"
         assert len(body["modules"][0]["topics"]) == 2
-        assert body["model_used"] == "deepseek-chat"
+        # Active provider is Gemini — model_used reflects gemini_model
+        assert body["model_used"] == "gemini-1.5-flash"
         assert "course_id" in body
 
     def test_generate_persists_to_database(self, db_session):

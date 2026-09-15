@@ -41,8 +41,9 @@ from backend.app.schemas import (
     TopicUpdate,
 )
 from backend.app.schemas.courses import ModuleOut, TopicOut
+from backend.app.services.auth_service import get_current_user
 from backend.app.services.deepseek_client import DeepSeekClient, get_deepseek_client
-from backend.database.models import Content, Course, Module, Quiz, Question, Topic
+from backend.database.models import Content, Course, Module, Quiz, Question, Topic, User
 from backend.database.session import get_db
 
 logger = logging.getLogger(__name__)
@@ -95,6 +96,26 @@ def _get_course_or_404(db: Session, course_id: str) -> Course:
             detail=f"Course '{course_id}' not found.",
         )
     return course
+
+
+def _assert_topic_owner(db: Session, topic: Topic, current_user: User) -> Course:
+    """Verify the authenticated user owns the course that contains this topic. Returns course."""
+    course = db.query(Course).filter(Course.id == topic.module.course_id).first()
+    if course is None or course.owner_id != current_user.id:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="You do not have access to this topic.",
+        )
+    return course
+
+
+def _assert_course_owner(current_user: User, course: Course) -> None:
+    """Verify the authenticated user owns the given course."""
+    if course.owner_id != current_user.id:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="You do not have access to this course.",
+        )
 
 
 def _content_to_response(content: Content, topic_id: uuid.UUID) -> TopicContentResponse:
@@ -200,18 +221,17 @@ def generate_topic_content(
     topic_id: str,
     db: Session = Depends(get_db),
     ds: DeepSeekClient = Depends(get_deepseek_client),
+    current_user: User = Depends(get_current_user),
 ) -> TopicContentResponse:
     """
-    1. Resolve topic → get course title for context.
-    2. Call DeepSeek to generate structured learning content.
+    1. Resolve topic + verify ownership.
+    2. Call AI to generate structured learning content.
     3. Persist or replace a Content row for this topic.
     4. Return the content.
     """
     topic = _get_topic_or_404(db, topic_id)
-
-    # Walk up the hierarchy to find course title
-    course = db.query(Course).filter(Course.id == topic.module.course_id).first()
-    course_title = course.title if course else "Unknown Course"
+    course = _assert_topic_owner(db, topic, current_user)
+    course_title = course.title
 
     try:
         content_data, model_used = ds.generate_topic_content(
@@ -261,9 +281,11 @@ def generate_topic_content(
 def get_topic_content(
     topic_id: str,
     db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
 ) -> TopicContentResponse:
     """Return the most recently generated content for a topic."""
     topic = _get_topic_or_404(db, topic_id)
+    _assert_topic_owner(db, topic, current_user)
     content = (
         db.query(Content)
         .filter(Content.topic_id == topic.id)
@@ -298,16 +320,17 @@ def generate_topic_quiz(
     topic_id: str,
     db: Session = Depends(get_db),
     ds: DeepSeekClient = Depends(get_deepseek_client),
+    current_user: User = Depends(get_current_user),
 ) -> QuizResponse:
     """
-    1. Resolve topic.
-    2. Call DeepSeek to generate a 5-question MCQ quiz.
+    1. Resolve topic + verify ownership.
+    2. Call AI to generate a 5-question MCQ quiz.
     3. Persist or replace Quiz + Question rows.
     4. Return the quiz.
     """
     topic = _get_topic_or_404(db, topic_id)
-    course = db.query(Course).filter(Course.id == topic.module.course_id).first()
-    course_title = course.title if course else "Unknown Course"
+    course = _assert_topic_owner(db, topic, current_user)
+    course_title = course.title
 
     try:
         quiz_data, model_used = ds.generate_quiz(
@@ -391,9 +414,11 @@ def generate_topic_quiz(
 def get_topic_quiz(
     topic_id: str,
     db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
 ) -> QuizResponse:
     """Return the most recently generated quiz for a topic."""
     topic = _get_topic_or_404(db, topic_id)
+    _assert_topic_owner(db, topic, current_user)
     quiz = (
         db.query(Quiz)
         .options(joinedload(Quiz.questions))
@@ -476,6 +501,7 @@ def generate_course_revision(
     course_id: str,
     db: Session = Depends(get_db),
     ds: DeepSeekClient = Depends(get_deepseek_client),
+    current_user: User = Depends(get_current_user),
 ) -> RevisionResponse:
     """
     Generate revision materials (quick notes, takeaways, question bank) for a whole course.
@@ -483,6 +509,7 @@ def generate_course_revision(
     Returns the RevisionResponse.
     """
     course = _get_course_or_404(db, course_id)
+    _assert_course_owner(current_user, course)
     modules_summary = _build_modules_summary(course)
 
     try:
@@ -538,9 +565,11 @@ def generate_course_revision(
 def get_course_revision(
     course_id: str,
     db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
 ) -> RevisionResponse:
     """Return the most recently generated revision materials for a course."""
     course = _get_course_or_404(db, course_id)
+    _assert_course_owner(current_user, course)
 
     revision_content = (
         db.query(Content)
@@ -578,8 +607,9 @@ def update_module(
     module_id: str,
     body: ModuleUpdate,
     db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
 ) -> ModuleOut:
-    """Partial update of a module's title and/or description."""
+    """Partial update of a module's title and/or description. Only the course owner may update."""
     try:
         mid = uuid.UUID(module_id)
     except (ValueError, AttributeError):
@@ -588,12 +618,13 @@ def update_module(
             detail=f"'{module_id}' is not a valid module ID.",
         )
 
-    module = db.query(Module).filter(Module.id == mid).first()
+    module = db.query(Module).options(joinedload(Module.course)).filter(Module.id == mid).first()
     if module is None:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
             detail=f"Module '{module_id}' not found.",
         )
+    _assert_course_owner(current_user, module.course)
 
     if body.title is not None:
         module.title = body.title.strip()
@@ -645,9 +676,11 @@ def update_topic(
     topic_id: str,
     body: TopicUpdate,
     db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
 ) -> TopicOut:
-    """Partial update of a topic's title and/or description."""
+    """Partial update of a topic's title and/or description. Only the course owner may update."""
     topic = _get_topic_or_404(db, topic_id)
+    _assert_topic_owner(db, topic, current_user)
 
     if body.title is not None:
         topic.title = body.title.strip()

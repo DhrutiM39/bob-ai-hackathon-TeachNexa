@@ -27,6 +27,7 @@ from sqlalchemy import create_engine, event, StaticPool
 from sqlalchemy.orm import sessionmaker, Session
 
 from backend.app.main import app
+from backend.app.services.auth_service import get_current_user
 from backend.database.models import Base, Content, Course, Module, Quiz, Question, Topic, User
 from backend.database.session import get_db
 from backend.app.services.deepseek_client import get_deepseek_client
@@ -74,11 +75,16 @@ def db(_create_tables) -> Session:
     session.close()
 
 
-def _make_client(session: Session, mock_ds=None) -> TestClient:
+def _make_client(session: Session, mock_ds=None, user: User = None) -> TestClient:
     def _override_db():
         yield session
 
+    # Auto-pick the last user created by _make_hierarchy so tests don't need to pass it explicitly
+    _user = user or getattr(_make_hierarchy, "_last_user", None)
+
     app.dependency_overrides[get_db] = _override_db
+    if _user is not None:
+        app.dependency_overrides[get_current_user] = lambda u=_user: u
     if mock_ds is not None:
         app.dependency_overrides[get_deepseek_client] = lambda: mock_ds
     else:
@@ -104,6 +110,9 @@ def _make_hierarchy(db: Session, *, n_topics: int = 2) -> tuple[Course, Module, 
     )
     db.add(user)
     db.flush()
+
+    # Store user on the course for ownership checks in _make_client calls
+    _make_hierarchy._last_user = user
 
     course = Course(
         id=uuid.uuid4(),
@@ -222,19 +231,19 @@ _MOCK_REVISION_DATA = {
 }
 
 
-def _mock_ds_content(data=None, model="deepseek-chat"):
+def _mock_ds_content(data=None, model="gemini-1.5-flash"):
     mock = MagicMock()
     mock.generate_topic_content.return_value = (data or _MOCK_CONTENT_DATA, model)
     return mock
 
 
-def _mock_ds_quiz(data=None, model="deepseek-chat"):
+def _mock_ds_quiz(data=None, model="gemini-1.5-flash"):
     mock = MagicMock()
     mock.generate_quiz.return_value = (data or _MOCK_QUIZ_DATA, model)
     return mock
 
 
-def _mock_ds_revision(data=None, model="deepseek-chat"):
+def _mock_ds_revision(data=None, model="gemini-1.5-flash"):
     mock = MagicMock()
     mock.generate_revision.return_value = (data or _MOCK_REVISION_DATA, model)
     return mock
@@ -804,21 +813,24 @@ class TestCourseStructureRepeatGenerate:
 
     def test_repeated_generate_creates_separate_courses(self, db):
         """Two identical generate calls must create two distinct Course rows."""
+        from backend.app.services.auth_service import get_current_user
         from backend.app.services.deepseek_client import DeepSeekClient, get_deepseek_client
         from backend.database.models import User
         import uuid as _uuid
 
-        # Seed the demo user (server now assigns ownership to it)
-        demo_uuid = _uuid.UUID("00000000-0000-0000-0000-000000000001")
+        # Create an authenticated user for this test
+        demo_uuid = _uuid.UUID("00000000-0000-0000-0000-000000000099")
         existing = db.query(User).filter(User.id == demo_uuid).first()
         if not existing:
-            db.add(User(
+            existing = User(
                 id=demo_uuid,
                 name="Demo Professor",
-                email="demo@coursegenie.ai",
+                email="demo99@coursegenie.ai",
                 role="instructor",
-            ))
+            )
+            db.add(existing)
             db.flush()
+        auth_user = existing
 
         _MODULES = {
             "modules": [
@@ -843,7 +855,7 @@ class TestCourseStructureRepeatGenerate:
         mock_openai.chat.completions.create.return_value = mock_response
 
         from backend.app.config import Settings
-        ds = DeepSeekClient(settings=Settings(deepseek_api_key="test", app_env="development"))
+        ds = DeepSeekClient(settings=Settings(gemini_api_key="test-gemini-key", gemini_model="gemini-1.5-flash", app_env="development"))
         ds._client = mock_openai
 
         def _override_db():
@@ -851,6 +863,7 @@ class TestCourseStructureRepeatGenerate:
 
         app.dependency_overrides[get_db] = _override_db
         app.dependency_overrides[get_deepseek_client] = lambda: ds
+        app.dependency_overrides[get_current_user] = lambda: auth_user
         client = TestClient(app, raise_server_exceptions=True)
 
         payload = {

@@ -26,6 +26,7 @@ from sqlalchemy import create_engine, event, StaticPool
 from sqlalchemy.orm import sessionmaker, Session
 
 from backend.app.main import app
+from backend.app.services.auth_service import get_current_user
 from backend.app.services.deepseek_client import get_deepseek_client
 from backend.database.models import Base, Course, Module, Topic, User
 from backend.database.session import get_db
@@ -94,13 +95,15 @@ def _mock_ds():
                 ],
             }
         ],
-        "deepseek-chat",
+        "gemini-1.5-flash",  # active provider is Gemini
     )
     return ds
 
 
-def _api_client(session: Session, mock_ds=None) -> TestClient:
+def _api_client(session: Session, mock_ds=None, user: User = None) -> TestClient:
     app.dependency_overrides[get_db] = lambda: (yield session)
+    if user is not None:
+        app.dependency_overrides[get_current_user] = lambda u=user: u
     if mock_ds is not None:
         app.dependency_overrides[get_deepseek_client] = lambda: mock_ds
     return TestClient(app, raise_server_exceptions=False)
@@ -170,33 +173,33 @@ class TestSeedIdempotency:
         assert user.email == "demo@coursegenie.ai"
 
 
-# ── C + D. Generation without owner_id in request ────────────────────────────
+# ── C + D. Generation with authenticated user ────────────────────────────────
 
-class TestGenerateWithoutOwnerIdInRequest:
-    """Course generation must succeed without owner_id in the request body."""
+class TestGenerateWithAuthUser:
+    """Course generation must succeed using the authenticated user as the owner."""
 
-    def test_generate_succeeds_without_owner_id_field(self, db):
-        _insert_demo_user(db)
-        c = _api_client(db, _mock_ds())
+    def test_generate_succeeds_with_auth_user(self, db):
+        user = _insert_demo_user(db)
+        c = _api_client(db, _mock_ds(), user=user)
         resp = c.post(GENERATE_URL, json={"title": "CS 101", "syllabus_text": _SYLLABUS})
         assert resp.status_code == 201, resp.text
 
-    def test_generated_course_owned_by_demo_user(self, db):
-        """The course owner must be the server-side demo user UUID."""
-        _insert_demo_user(db)
-        c = _api_client(db, _mock_ds())
+    def test_generated_course_owned_by_authenticated_user(self, db):
+        """The course owner must be the authenticated user, not a client-supplied ID."""
+        user = _insert_demo_user(db)
+        c = _api_client(db, _mock_ds(), user=user)
         resp = c.post(GENERATE_URL, json={"title": "CS 101", "syllabus_text": _SYLLABUS})
         assert resp.status_code == 201, resp.text
         course_id = uuid.UUID(resp.json()["course_id"])
         course = db.query(Course).filter(Course.id == course_id).first()
         assert course is not None
-        assert course.owner_id == DEMO_UUID
+        assert course.owner_id == user.id
 
     def test_client_supplied_owner_id_does_not_affect_ownership(self, db):
         """A foreign UUID sent in the body must be ignored by the server."""
-        _insert_demo_user(db)
+        user = _insert_demo_user(db)
         attacker_uuid = str(uuid.uuid4())
-        c = _api_client(db, _mock_ds())
+        c = _api_client(db, _mock_ds(), user=user)
         resp = c.post(
             GENERATE_URL,
             json={
@@ -208,29 +211,24 @@ class TestGenerateWithoutOwnerIdInRequest:
         assert resp.status_code == 201, resp.text
         course_id = uuid.UUID(resp.json()["course_id"])
         course = db.query(Course).filter(Course.id == course_id).first()
-        # Owner must be demo UUID, NOT the attacker's UUID
-        assert str(course.owner_id) == DEMO_UUID_STR
+        # Owner must be the authenticated user, NOT the attacker's UUID
+        assert course.owner_id == user.id
         assert str(course.owner_id) != attacker_uuid
 
-    def test_missing_demo_user_returns_503(self, db):
-        """Without the demo user row the endpoint must return 503."""
-        # Explicitly remove the demo user row so this test is isolated
-        # regardless of insertion order within the StaticPool-shared connection.
-        db.query(User).filter(User.id == DEMO_UUID).delete()
-        db.flush()
-
+    def test_unauthenticated_request_returns_401(self, db):
+        """Requests without auth must return 401."""
+        # Do NOT pass a user — no get_current_user override
         c = _api_client(db, _mock_ds())
         resp = c.post(GENERATE_URL, json={"title": "CS 101", "syllabus_text": _SYLLABUS})
-        assert resp.status_code == 503
-        assert "detail" in resp.json()
+        assert resp.status_code == 401
 
 
-# ── E. Course list filtered to demo owner ────────────────────────────────────
+# ── E. Course list filtered to authenticated owner ───────────────────────────
 
 class TestCourseListFilter:
-    """GET /api/courses must only return courses owned by the demo user."""
+    """GET /api/courses must only return courses owned by the authenticated user."""
 
-    def test_only_demo_owner_courses_returned(self, db):
+    def test_only_auth_user_courses_returned(self, db):
         demo = _insert_demo_user(db)
         other = User(id=uuid.uuid4(), name="Other", email="o@x.com", role="instructor")
         db.add(other)
@@ -249,7 +247,7 @@ class TestCourseListFilter:
         db.add_all([demo_course, other_course])
         db.flush()
 
-        c = _api_client(db)
+        c = _api_client(db, user=demo)
         resp = c.get(LIST_URL)
         assert resp.status_code == 200
         titles = [item["title"] for item in resp.json()["courses"]]
@@ -265,12 +263,13 @@ class TestCourseListFilter:
         db.add(Course(id=uuid.uuid4(), title="O1", owner_id=other.id, syllabus_text="x"))
         db.flush()
 
-        c = _api_client(db)
+        c = _api_client(db, user=demo)
         resp = c.get(LIST_URL)
         assert resp.json()["total"] == 1
 
-    def test_empty_list_when_no_demo_courses(self, db):
-        c = _api_client(db)
+    def test_empty_list_when_no_courses_for_auth_user(self, db):
+        user = _insert_demo_user(db)
+        c = _api_client(db, user=user)
         resp = c.get(LIST_URL)
         assert resp.status_code == 200
         assert resp.json()["courses"] == []

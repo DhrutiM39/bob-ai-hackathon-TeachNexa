@@ -25,6 +25,7 @@ from sqlalchemy import create_engine, event, StaticPool
 from sqlalchemy.orm import sessionmaker, Session
 
 from backend.app.main import app
+from backend.app.services.auth_service import get_current_user
 from backend.database.models import Base, Course, Module, Topic, User
 from backend.database.session import get_db
 
@@ -69,10 +70,13 @@ def db(_tables) -> Session:
     session.close()
 
 
-def _make_client(session: Session) -> TestClient:
+def _make_client(session: Session, user: User = None) -> TestClient:
     def _override():
         yield session
+    _user = user or getattr(_seed_hierarchy, "_last_user", None)
     app.dependency_overrides[get_db] = _override
+    if _user is not None:
+        app.dependency_overrides[get_current_user] = lambda u=_user: u
     return TestClient(app, raise_server_exceptions=False)
 
 
@@ -82,18 +86,23 @@ def _clear():
     app.dependency_overrides.clear()
 
 
+_SEED_COUNTER = 0
+
 def _seed_hierarchy(db: Session):
-    """Insert demo user → course → module → topic; return all four."""
-    user = User(id=DEMO_ID, name="Prof", email="prof@test.com", role="instructor")
+    """Insert user → course → module → topic; return all four."""
+    global _SEED_COUNTER
+    _SEED_COUNTER += 1
+    user = User(id=uuid.uuid4(), name="Prof", email=f"prof_{_SEED_COUNTER}@test.com", role="instructor")
     db.add(user)
     db.flush()
+    _seed_hierarchy._last_user = user
 
     course = Course(
         id=uuid.uuid4(),
         title="Original Title",
         description="Original description",
         syllabus_text="Week 1: Intro",
-        owner_id=DEMO_ID,
+        owner_id=user.id,
     )
     db.add(course)
     db.flush()

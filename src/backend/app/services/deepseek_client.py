@@ -1,17 +1,22 @@
 """
-DeepSeek client wrapper for CourseGenie AI.
+AI client wrapper for CourseGenie AI.
+
+Active provider: Google Gemini (via OpenAI-compatible endpoint).
+Legacy provider: DeepSeek (preserved; can be restored by swapping _get_client).
 
 Responsibilities:
-  - Initialise the DeepSeek chat-completions client from Settings.
-  - Expose a single high-level method: generate_course_structure()
-    that takes a syllabus and returns a validated list of module/topic dicts.
+  - Initialise the AI chat-completions client from Settings.
+  - Expose high-level methods: generate_course_structure(),
+    generate_topic_content(), generate_quiz(), generate_revision().
   - Keep all prompt engineering, JSON extraction, and retry logic here
     so callers never touch the SDK directly.
 
 The class is designed to be dependency-injected (see get_deepseek_client in
 this module), which makes it trivially mockable in tests.
 
-Uses the `openai` Python SDK pointed at DeepSeek's compatible endpoint.
+Uses the `openai` Python SDK pointed at Google Gemini's OpenAI-compatible
+endpoint (https://generativelanguage.googleapis.com/v1beta/openai/).
+DeepSeek wiring is preserved below and can be restored by swapping _get_client.
 """
 
 from __future__ import annotations
@@ -207,7 +212,16 @@ class DeepSeekClient:
     # Internal helpers
     # ------------------------------------------------------------------
     def _get_client(self) -> Any:
-        """Return (and lazily create) the OpenAI client pointed at DeepSeek."""
+        """Return (and lazily create) the OpenAI client pointed at Gemini.
+
+        ACTIVE PROVIDER: Google Gemini (OpenAI-compatible endpoint).
+        To restore DeepSeek, replace the OpenAI() call below with:
+            self._client = OpenAI(
+                api_key=self._settings.deepseek_api_key,
+                base_url="https://api.deepseek.com",
+            )
+        and swap the model references to self._settings.deepseek_model.
+        """
         if self._client is not None:
             return self._client
 
@@ -218,13 +232,14 @@ class DeepSeekClient:
                 "openai is not installed. Run: pip install openai"
             ) from exc
 
+        # ── Active: Google Gemini ──────────────────────────────────────────
         self._client = OpenAI(
-            api_key=self._settings.deepseek_api_key,
-            base_url="https://api.deepseek.com",
+            api_key=self._settings.gemini_api_key,
+            base_url="https://generativelanguage.googleapis.com/v1beta/openai/",
         )
         logger.info(
-            "DeepSeekClient initialised — model=%s",
-            self._settings.deepseek_model,
+            "AI client initialised — provider=Gemini model=%s",
+            self._settings.gemini_model,
         )
         return self._client
 
@@ -299,8 +314,8 @@ class DeepSeekClient:
         prompt = _COURSE_STRUCTURE_PROMPT.format(syllabus_text=syllabus_text)
 
         client = self._get_client()
-        model = self._settings.deepseek_model
-        logger.debug("Sending generate request to DeepSeek (%d chars)", len(prompt))
+        model = self._settings.gemini_model
+        logger.debug("Sending generate_course_structure request (%d chars)", len(prompt))
 
         try:
             response = client.chat.completions.create(
@@ -310,7 +325,7 @@ class DeepSeekClient:
                 temperature=0.2,
             )
         except Exception as exc:
-            logger.exception("DeepSeek API call failed")
+            logger.exception("AI API call failed (generate_course_structure)")
             raise RuntimeError(f"DeepSeek call failed: {exc}") from exc
 
         raw_text: str = response.choices[0].message.content or ""
@@ -342,7 +357,7 @@ class DeepSeekClient:
             course_title=course_title,
         )
         client = self._get_client()
-        model = self._settings.deepseek_model
+        model = self._settings.gemini_model
         try:
             response = client.chat.completions.create(
                 model=model,
@@ -351,7 +366,7 @@ class DeepSeekClient:
                 temperature=0.3,
             )
         except Exception as exc:
-            logger.exception("DeepSeek topic-content call failed")
+            logger.exception("AI API call failed (generate_topic_content)")
             raise RuntimeError(f"DeepSeek call failed: {exc}") from exc
 
         raw_text: str = response.choices[0].message.content or ""
@@ -381,7 +396,7 @@ class DeepSeekClient:
             course_title=course_title,
         )
         client = self._get_client()
-        model = self._settings.deepseek_model
+        model = self._settings.gemini_model
         try:
             response = client.chat.completions.create(
                 model=model,
@@ -390,7 +405,7 @@ class DeepSeekClient:
                 temperature=0.2,
             )
         except Exception as exc:
-            logger.exception("DeepSeek quiz call failed")
+            logger.exception("AI API call failed (generate_quiz)")
             raise RuntimeError(f"DeepSeek call failed: {exc}") from exc
 
         raw_text: str = response.choices[0].message.content or ""
@@ -420,7 +435,7 @@ class DeepSeekClient:
             modules_text=modules_summary,
         )
         client = self._get_client()
-        model = self._settings.deepseek_model
+        model = self._settings.gemini_model
         try:
             response = client.chat.completions.create(
                 model=model,
@@ -429,7 +444,7 @@ class DeepSeekClient:
                 temperature=0.3,
             )
         except Exception as exc:
-            logger.exception("DeepSeek revision call failed")
+            logger.exception("AI API call failed (generate_revision)")
             raise RuntimeError(f"DeepSeek call failed: {exc}") from exc
 
         raw_text: str = response.choices[0].message.content or ""

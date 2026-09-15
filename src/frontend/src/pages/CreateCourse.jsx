@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
+import { useQueryClient } from '@tanstack/react-query';
 import styles from './CreateCourse.module.css';
 import useGenerationStore from '../store/useGenerationStore.js';
 import { GENERATION_STAGES, ROUTES } from '../constants/index.js';
@@ -15,6 +16,7 @@ const STAGE_IDS = GENERATION_STAGES.map((s) => s.id);
 
 export default function CreateCourse() {
   const navigate = useNavigate();
+  const queryClient = useQueryClient();
   const store = useGenerationStore();
   const [formErrors, setFormErrors] = useState({});
 
@@ -76,6 +78,7 @@ export default function CreateCourse() {
       await delay(400);
 
       const course = adaptCourse(courseData);
+      queryClient.invalidateQueries({ queryKey: ['courses'] });
       store.finishGeneration(course.id);
       await delay(600);
       navigate(ROUTES.COURSE_OVERVIEW(course.id));
@@ -121,7 +124,7 @@ export default function CreateCourse() {
     <div className={styles.page}>
       <PageHeader
         title="Create New Course"
-        subtitle="Paste your syllabus or upload a file and let DeepSeek AI build a complete structured course for you."
+        subtitle="Paste your syllabus or upload a file and let AI build a complete structured course for you."
       />
 
       {/* What AI does — explanation panel */}

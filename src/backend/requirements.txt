@@ -15,7 +15,12 @@ pydantic-settings>=2.6.0
 python-dotenv>=1.0.0
 
 # AI provider
-openai>=1.40.0               # DeepSeek's OpenAI-compatible SDK
+openai>=1.40.0               # OpenAI-compatible SDK (used for Gemini + legacy DeepSeek)
+
+# Authentication
+bcrypt>=4.0.0                # password hashing (used directly, avoids passlib compat issues)
+python-jose[cryptography]>=3.3.0  # JWT tokens
+email-validator>=2.1.0       # pydantic EmailStr validation
 
 # Testing
 pytest>=8.0.0

@@ -38,8 +38,9 @@ os.environ.setdefault("DATABASE_URL", "sqlite:///:memory:")
 
 from backend.app.main import app  # noqa: E402
 from backend.app.config import Settings  # noqa: E402
+from backend.app.services.auth_service import get_current_user  # noqa: E402
 from backend.app.services.deepseek_client import DeepSeekClient, get_deepseek_client  # noqa: E402
-from backend.database.models import Base  # noqa: E402
+from backend.database.models import Base, User  # noqa: E402
 import backend.database.models  # noqa: E402, F401
 from backend.database.session import get_db  # noqa: E402
 
@@ -111,6 +112,8 @@ def _fake_ds() -> DeepSeekClient:
     """DeepSeekClient whose SDK is fully mocked to return _FAKE_MODULES."""
     ds = DeepSeekClient(
         settings=Settings(
+            gemini_api_key="test-gemini-key",
+            gemini_model="gemini-1.5-flash",
             deepseek_api_key="test-key",
             deepseek_model="deepseek-chat",
             database_url="sqlite://",
@@ -132,24 +135,27 @@ def _fake_ds() -> DeepSeekClient:
 _DEMO_UUID = "00000000-0000-0000-0000-000000000001"
 
 
-def _insert_demo_user(session: Session) -> None:
-    from backend.database.models import User
+def _insert_demo_user(session: Session) -> User:
     import uuid as _uuid
     existing = session.query(User).filter(User.id == _uuid.UUID(_DEMO_UUID)).first()
     if existing:
-        return
-    session.add(User(
+        return existing
+    user = User(
         id=_uuid.UUID(_DEMO_UUID),
         name="Demo Professor",
         email="demo@coursegenie.ai",
         role="instructor",
-    ))
+    )
+    session.add(user)
     session.flush()
+    return user
 
 
-def _api_client(session: Session) -> TestClient:
+def _api_client(session: Session, user: User = None) -> TestClient:
     app.dependency_overrides[get_db] = lambda: (yield session)
     app.dependency_overrides[get_deepseek_client] = lambda: _fake_ds()
+    if user is not None:
+        app.dependency_overrides[get_current_user] = lambda u=user: u
     return TestClient(app, raise_server_exceptions=True)
 
 
@@ -168,8 +174,8 @@ class TestFileUploadToGenerateFlow:
 
     def test_text_only_generation_returns_201(self, db_session):
         """Typed / pasted syllabus text reaches the backend and produces a course."""
-        _insert_demo_user(db_session)
-        c = _api_client(db_session)
+        user = _insert_demo_user(db_session)
+        c = _api_client(db_session, user=user)
         resp = c.post(
             "/api/v1/courses/generate",
             json={
@@ -192,8 +198,8 @@ class TestFileUploadToGenerateFlow:
         the extracted string is sent as syllabus_text — indistinguishable from
         typed text from the backend's perspective.
         """
-        _insert_demo_user(db_session)
-        c = _api_client(db_session)
+        user = _insert_demo_user(db_session)
+        c = _api_client(db_session, user=user)
         resp = c.post(
             "/api/v1/courses/generate",
             json={
@@ -209,8 +215,8 @@ class TestFileUploadToGenerateFlow:
         """Course row persisted when syllabus_text originates from file extraction."""
         from backend.database.models import Course
 
-        _insert_demo_user(db_session)
-        c = _api_client(db_session)
+        user = _insert_demo_user(db_session)
+        c = _api_client(db_session, user=user)
         resp = c.post(
             "/api/v1/courses/generate",
             json={
@@ -238,8 +244,8 @@ class TestFileUploadToGenerateFlow:
             "Module B covers data structures. Module C covers system design. "
             "Module D covers operating systems. Module E covers networking basics."
         )
-        _insert_demo_user(db_session)
-        c = _api_client(db_session)
+        user = _insert_demo_user(db_session)
+        c = _api_client(db_session, user=user)
         resp = c.post(
             "/api/v1/courses/generate",
             json={
@@ -257,7 +263,8 @@ class TestFileUploadToGenerateFlow:
         The frontend validate() prevents submission when both textarea and file are
         absent, but even if an empty string slips through, Pydantic rejects it.
         """
-        c = _api_client(db_session)
+        user = _insert_demo_user(db_session)
+        c = _api_client(db_session, user=user)
         resp = c.post(
             "/api/v1/courses/generate",
             json={
@@ -272,7 +279,8 @@ class TestFileUploadToGenerateFlow:
         Whitespace stripped by the Pydantic validator leaves an empty string,
         which triggers the min_length=50 check.
         """
-        c = _api_client(db_session)
+        user = _insert_demo_user(db_session)
+        c = _api_client(db_session, user=user)
         resp = c.post(
             "/api/v1/courses/generate",
             json={
@@ -289,7 +297,8 @@ class TestFileUploadToGenerateFlow:
         If extraction somehow produced content shorter than 50 chars the
         backend Pydantic schema rejects it with 422 before calling DeepSeek.
         """
-        c = _api_client(db_session)
+        user = _insert_demo_user(db_session)
+        c = _api_client(db_session, user=user)
         resp = c.post(
             "/api/v1/courses/generate",
             json={

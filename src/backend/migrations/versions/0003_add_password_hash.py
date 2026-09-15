@@ -1,0 +1,27 @@
+"""add password_hash to users
+
+Revision ID: 0003_add_password_hash
+Revises: 0002_content_course_id
+Create Date: 2025-07-01 00:00:00.000000
+"""
+
+from typing import Sequence, Union
+
+import sqlalchemy as sa
+from alembic import op
+
+revision: str = "0003_add_password_hash"
+down_revision: Union[str, None] = "0002_content_course_id"
+branch_labels: Union[str, Sequence[str], None] = None
+depends_on: Union[str, Sequence[str], None] = None
+
+
+def upgrade() -> None:
+    op.add_column(
+        "users",
+        sa.Column("password_hash", sa.String(255), nullable=True),
+    )
+
+
+def downgrade() -> None:
+    op.drop_column("users", "password_hash")

@@ -2,12 +2,13 @@
 Application configuration loaded from environment variables.
 Copy src/.env.example to src/.env and fill in real values before running.
 
-All DeepSeek and database credentials live here so nothing else in the
-codebase touches os.environ directly.
+Active AI provider: Google Gemini (GEMINI_API_KEY / GEMINI_MODEL).
+Legacy AI provider: DeepSeek (DEEPSEEK_API_KEY / DEEPSEEK_MODEL) — preserved
+  for easy restoration; not used by the runtime path.
 
 Usage anywhere in the app:
     from backend.app.config import settings
-    print(settings.deepseek_api_key)
+    print(settings.gemini_api_key)
 """
 
 from functools import lru_cache
@@ -25,13 +26,24 @@ class Settings(BaseSettings):
     app_env: str = "development"
     app_port: int = 8000
 
-    # ── DeepSeek AI ──────────────────────────────────────────────────────────
+    # ── Google Gemini AI (ACTIVE provider) ───────────────────────────────────
+    gemini_api_key: str = ""
+    # Default model — override via env var GEMINI_MODEL
+    gemini_model: str = "gemini-1.5-flash"
+
+    # ── DeepSeek AI (LEGACY — preserved for easy restoration) ────────────────
     deepseek_api_key: str = ""
     # Default model — can be overridden via env var DEEPSEEK_MODEL
     deepseek_model: str = "deepseek-chat"
 
     # ── Database ─────────────────────────────────────────────────────────────
     database_url: str = "postgresql://coursegenie:changeme@localhost:5432/coursegenie"
+
+    # ── Authentication (JWT) ─────────────────────────────────────────────────
+    # Generate a strong key with: python -c "import secrets; print(secrets.token_hex(32))"
+    secret_key: str = "change-me-in-production-use-a-long-random-string"
+    jwt_algorithm: str = "HS256"
+    jwt_expire_minutes: int = 10080   # 7 days
 
     model_config = SettingsConfigDict(
         env_file=".env",
@@ -40,7 +52,7 @@ class Settings(BaseSettings):
         extra="ignore",
     )
 
-    @field_validator("deepseek_api_key", mode="before")
+    @field_validator("gemini_api_key", "deepseek_api_key", mode="before")
     @classmethod
     def _strip_whitespace(cls, v: str) -> str:
         return v.strip() if isinstance(v, str) else v

@@ -17,7 +17,7 @@ from fastapi.middleware.cors import CORSMiddleware
 
 from .api import api_router
 from .config import get_settings, settings
-from .routers import courses, topics
+from .routers import auth, courses, topics
 
 logging.basicConfig(
     level=logging.DEBUG if settings.app_env == "development" else logging.INFO,
@@ -79,6 +79,12 @@ app.add_middleware(
 # ── Routers ───────────────────────────────────────────────────────────────────
 # Milestone 1/2 routes: GET /health, POST /api/v1/syllabus
 app.include_router(api_router)
+
+# Auth routes:
+#   POST /api/auth/signup
+#   POST /api/auth/login
+#   GET  /api/auth/me
+app.include_router(auth.router)
 
 # Database-backed course routes:
 #   GET  /api/courses

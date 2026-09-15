@@ -2,18 +2,17 @@
 Course router — database-backed course endpoints.
 
 Routes implemented here:
-  GET  /api/courses                   → list courses owned by the demo user
+  GET  /api/courses                   → list courses owned by the authenticated user
   GET  /api/courses/{course_id}       → full course detail (modules + topics)
   POST /api/v1/courses/generate       → generate course via AI + persist to DB
+  PATCH /api/courses/{course_id}      → update course metadata
 
 Design:
   - Route handlers stay thin: validate → service call → respond.
   - No SQL inside this file; all DB access goes through helper functions below.
   - DeepSeekClient is injected via Depends() so it can be swapped in tests.
   - All DB writes use a single transaction (via get_db's commit-on-yield).
-  - owner_id is derived server-side from DEMO_OWNER_ID — clients cannot
-    supply it.  This is a hackathon-MVP demo isolation mechanism, not full
-    per-user authentication.
+  - owner_id is always derived from the authenticated user — clients cannot supply it.
 """
 
 from __future__ import annotations
@@ -37,19 +36,14 @@ from backend.app.schemas.generate import (
     GenerateCourseRequest,
     GenerateCourseResponse,
 )
+from backend.app.services.auth_service import get_current_user
 from backend.app.services.deepseek_client import DeepSeekClient, get_deepseek_client
-from backend.database.models import Course, Module, Topic
+from backend.database.models import Course, Module, Topic, User
 from backend.database.session import get_db
 
 logger = logging.getLogger(__name__)
 
 router = APIRouter(tags=["courses"])
-
-# ── Demo owner ────────────────────────────────────────────────────────────────
-# Server-side constant — matches seed.py / VITE_DEMO_OWNER_ID.
-# Clients never send this value; the backend assigns it on every course create.
-# NOTE: Hackathon MVP.  Replace with get_current_user() when real auth is added.
-DEMO_OWNER_ID: uuid.UUID = uuid.UUID("00000000-0000-0000-0000-000000000001")
 
 
 # ─────────────────────────────────────────────────────────────────────────────
@@ -124,14 +118,17 @@ def _build_course_detail(db: Session, course: Course) -> CourseDetail:
         "Does NOT include the full module/topic tree."
     ),
 )
-def list_courses(db: Session = Depends(get_db)) -> CoursesListResponse:
-    """Return courses owned by the demo user, newest first."""
+def list_courses(
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+) -> CoursesListResponse:
+    """Return courses owned by the authenticated user, newest first."""
     courses = (
         db.query(Course)
         .options(
             joinedload(Course.modules).joinedload(Module.topics)
         )
-        .filter(Course.owner_id == DEMO_OWNER_ID)
+        .filter(Course.owner_id == current_user.id)
         .order_by(Course.created_at.desc())
         .all()
     )
@@ -171,14 +168,18 @@ def list_courses(db: Session = Depends(get_db)) -> CoursesListResponse:
         400: {"description": "Invalid course ID format."},
     },
 )
-def get_course(course_id: str, db: Session = Depends(get_db)) -> CourseDetail:
+def get_course(
+    course_id: str,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+) -> CourseDetail:
     """
     Return a single course with its full module + topic tree.
 
-    Raises 400 if ``course_id`` is not a valid UUID.
+    Raises 400 if course_id is not a valid UUID.
+    Raises 403 if the course does not belong to the authenticated user.
     Raises 404 if no course with that ID exists.
     """
-    # Validate UUID format before hitting the DB
     try:
         parsed_id = uuid.UUID(str(course_id))
     except (ValueError, AttributeError):
@@ -205,6 +206,12 @@ def get_course(course_id: str, db: Session = Depends(get_db)) -> CourseDetail:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
             detail=f"Course '{course_id}' not found.",
+        )
+
+    if course.owner_id != current_user.id:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="You do not have access to this course.",
         )
 
     return _build_course_detail(db, course)
@@ -235,28 +242,15 @@ def generate_course(
     body: GenerateCourseRequest,
     db: Session = Depends(get_db),
     ds: DeepSeekClient = Depends(get_deepseek_client),
+    current_user: User = Depends(get_current_user),
 ) -> GenerateCourseResponse:
     """
-    1. Resolve the server-side demo owner (never from the client).
-    2. Call DeepSeek to parse the syllabus into modules/topics.
+    1. Use the authenticated user as the course owner (never from client).
+    2. Call the AI service to parse the syllabus into modules/topics.
     3. Persist a Course row, then Module rows, then Topic rows (single transaction).
     4. Return the full hierarchy as a GenerateCourseResponse.
     """
-    from backend.database.models import User
-
-    # ── 0. Resolve demo owner server-side (client cannot influence this) ──
-    owner = db.query(User).filter(User.id == DEMO_OWNER_ID).first()
-    if owner is None:
-        raise HTTPException(
-            status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
-            detail=(
-                "Demo user not found in database. "
-                "The application should seed it on startup automatically. "
-                "Run: python -m backend.app.seed"
-            ),
-        )
-
-    # ── 1. Generate structure via DeepSeek ───────────────────────────────
+    # ── 1. Generate structure via AI ─────────────────────────────────────
     try:
         raw_modules, model_used = ds.generate_course_structure(body.syllabus_text)
     except ValueError as exc:
@@ -277,7 +271,7 @@ def generate_course(
         title=body.title,
         description=body.description,
         syllabus_text=body.syllabus_text,
-        owner_id=DEMO_OWNER_ID,   # server-assigned, never from client
+        owner_id=current_user.id,   # server-assigned from authenticated user
     )
     db.add(course)
     db.flush()  # get course.id before inserting children
@@ -365,12 +359,11 @@ def update_course(
     course_id: str,
     body: CourseUpdate,
     db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
 ) -> CourseDetail:
     """
     Partial update of a course's title and/or description.
-
-    Only fields supplied in the request body are modified.
-    syllabus_text, owner_id, and all generated content are NOT touched.
+    Only the course owner may update it.
     """
     try:
         parsed_id = uuid.UUID(str(course_id))
@@ -397,6 +390,11 @@ def update_course(
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
             detail=f"Course '{course_id}' not found.",
+        )
+    if course.owner_id != current_user.id:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="You do not have access to this course.",
         )
 
     if body.title is not None:

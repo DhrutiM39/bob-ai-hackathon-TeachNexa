@@ -24,7 +24,7 @@ export default function QuizPage() {
   const [answers, setAnswers] = useState({});
   const [submitted, setSubmitted] = useState(false);
 
-  const topic = course?.modules?.flatMap((m) => m.topics).find((t) => t.id === topicId);
+  const topic = course?.modules?.flatMap((m) => m.topics).find((t) => String(t.id) === String(topicId));
   const questions = quiz?.questions ?? [];
   const totalQ = questions.length;
   const current = questions[currentIdx];

@@ -28,6 +28,7 @@ from sqlalchemy.orm import sessionmaker, Session
 # ── conftest.py already sets DATABASE_URL=sqlite:///:memory: before any import ──
 
 from backend.app.main import app
+from backend.app.services.auth_service import get_current_user
 from backend.database.models import Base, Course, Module, Topic, User
 from backend.database.session import get_db
 from backend.app.services.deepseek_client import get_deepseek_client
@@ -79,12 +80,20 @@ def db(_create_tables) -> Session:
     session.close()
 
 
-def _make_client(session: Session, mock_ds=None) -> TestClient:
-    """Build a TestClient that injects *session* and an optional mock DS client."""
+def _make_client(session: Session, mock_ds=None, user: User = None) -> TestClient:
+    """Build a TestClient that injects *session*, optional mock DS, and auth user."""
     def _override_db():
         yield session
 
+    _user = user or User(
+        id=uuid.UUID(DEMO_OWNER_ID),
+        name="Test User",
+        email="test@example.com",
+        role="instructor",
+    )
+
     app.dependency_overrides[get_db] = _override_db
+    app.dependency_overrides[get_current_user] = lambda: _user
     if mock_ds is not None:
         app.dependency_overrides[get_deepseek_client] = lambda: mock_ds
     else:
@@ -153,7 +162,7 @@ def _make_course(db: Session, owner: User, *, title="Test Course", n_modules=2, 
     return course
 
 
-def _mock_deepseek(raw_modules=None, model="deepseek-chat"):
+def _mock_deepseek(raw_modules=None, model="gemini-1.5-flash"):
     """Return a MagicMock DeepSeekClient whose generate_course_structure returns given data."""
     if raw_modules is None:
         raw_modules = [
@@ -414,9 +423,10 @@ class TestGenerateCourseSuccess:
         assert course.title == VALID_GENERATE_BODY["title"]
 
     def test_model_used_returned(self, db, demo_user):
-        c = _make_client(db, _mock_deepseek(model="deepseek-chat"))
+        # Active provider is Gemini — model_used reflects gemini_model
+        c = _make_client(db, _mock_deepseek(model="gemini-1.5-flash"))
         response = c.post(GENERATE_ENDPOINT, json=VALID_GENERATE_BODY)
-        assert response.json()["model_used"] == "deepseek-chat"
+        assert response.json()["model_used"] == "gemini-1.5-flash"
 
     def test_syllabus_text_stored(self, db, demo_user):
         c = _make_client(db, _mock_deepseek())
@@ -439,27 +449,31 @@ class TestGenerateCourseErrors:
         # and the course is owned by the demo user, not the supplied UUID.
         assert response.status_code == 201
 
-    def test_course_owner_is_always_demo_user(self, db, demo_user):
-        """Even if a client somehow constructs a body with owner_id, it is ignored."""
+    def test_course_owner_is_always_authenticated_user(self, db, demo_user):
+        """Even if a client sends owner_id in the body, it is ignored — owner comes from auth."""
         from backend.database.models import Course as CourseModel
         other_uuid = str(uuid.uuid4())
         body = {**VALID_GENERATE_BODY, "owner_id": other_uuid}
-        c = _make_client(db, _mock_deepseek())
+        c = _make_client(db, _mock_deepseek(), user=demo_user)
         response = c.post(GENERATE_ENDPOINT, json=body)
         assert response.status_code == 201
         course_id = uuid.UUID(response.json()["course_id"])
         course = db.query(CourseModel).filter(CourseModel.id == course_id).first()
-        assert str(course.owner_id) == DEMO_OWNER_ID
+        # Owner must be the authenticated user (demo_user), NOT the other_uuid
+        assert course.owner_id == demo_user.id
+        assert str(course.owner_id) != other_uuid
 
-    def test_missing_demo_user_returns_503(self, db):
-        """If the demo user row is absent, generate must return 503."""
-        # Explicitly delete the demo user to isolate this test from prior state
-        db.query(User).filter(User.id == uuid.UUID(DEMO_OWNER_ID)).delete()
-        db.flush()
-        c = _make_client(db, _mock_deepseek())
+    def test_unauthenticated_generate_returns_401(self, db):
+        """Generate without auth token must return 401."""
+        # Override with no user (no get_current_user override → 401)
+        from backend.app.services.auth_service import get_current_user as _gcu
+        app.dependency_overrides.pop(_gcu, None)  # ensure no user override
+        from backend.database.session import get_db as _gdb
+        app.dependency_overrides[_gdb] = lambda: (yield db)
+        from fastapi.testclient import TestClient as _TC
+        c = _TC(app, raise_server_exceptions=False)
         response = c.post(GENERATE_ENDPOINT, json=VALID_GENERATE_BODY)
-        assert response.status_code == 503
-        assert "detail" in response.json()
+        assert response.status_code == 401
 
     def test_deepseek_value_error_returns_422(self, db, demo_user):
         mock_ds = MagicMock()
