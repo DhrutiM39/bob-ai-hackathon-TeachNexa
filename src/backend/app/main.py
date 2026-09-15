@@ -10,6 +10,7 @@ or (from src/backend/):
 from __future__ import annotations
 
 import logging
+from contextlib import asynccontextmanager
 
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
@@ -25,6 +26,34 @@ logging.basicConfig(
 
 logger = logging.getLogger(__name__)
 
+
+# ── Lifespan ──────────────────────────────────────────────────────────────────
+@asynccontextmanager
+async def lifespan(app: FastAPI):
+    """
+    Runs once at application startup before the server starts accepting requests.
+
+    Seeds the demo user (UUID 00000000-0000-0000-0000-000000000001) so that
+    course generation always has a valid owner_id foreign key.  The seed is
+    idempotent — it is safe to call on every restart.
+
+    NOTE: This is a hackathon-MVP mechanism, not a real authentication system.
+    Full per-user auth is future work.
+    """
+    from .seed import seed_demo_user
+    from backend.database.session import SessionLocal
+
+    db = SessionLocal()
+    try:
+        seed_demo_user(db)
+    except Exception:
+        logger.exception("Startup seed failed — continuing without demo user")
+    finally:
+        db.close()
+
+    yield  # application runs here
+
+
 app = FastAPI(
     title=settings.app_name,
     version=settings.app_version,
@@ -35,6 +64,7 @@ app = FastAPI(
     ),
     docs_url="/docs",
     redoc_url="/redoc",
+    lifespan=lifespan,
 )
 
 # ── CORS ─────────────────────────────────────────────────────────────────────

@@ -189,7 +189,7 @@ VALID_GENERATE_BODY = {
         "Week 5: Algorithms — sorting, searching\n"
         "Week 6: Object-oriented programming\n"
     ),
-    "owner_id": DEMO_OWNER_ID,
+    # owner_id intentionally absent — backend assigns it server-side
 }
 
 
@@ -430,11 +430,35 @@ class TestGenerateCourseSuccess:
 # ─────────────────────────────────────────────────────────────────────────────
 
 class TestGenerateCourseErrors:
-    def test_unknown_owner_returns_400(self, db):
+    def test_client_supplied_owner_id_is_ignored(self, db, demo_user):
+        """owner_id in the request body must be silently ignored (extra fields)."""
         body = {**VALID_GENERATE_BODY, "owner_id": str(uuid.uuid4())}
         c = _make_client(db, _mock_deepseek())
         response = c.post(GENERATE_ENDPOINT, json=body)
-        assert response.status_code == 400
+        # Extra fields are discarded by Pydantic — the request still succeeds
+        # and the course is owned by the demo user, not the supplied UUID.
+        assert response.status_code == 201
+
+    def test_course_owner_is_always_demo_user(self, db, demo_user):
+        """Even if a client somehow constructs a body with owner_id, it is ignored."""
+        from backend.database.models import Course as CourseModel
+        other_uuid = str(uuid.uuid4())
+        body = {**VALID_GENERATE_BODY, "owner_id": other_uuid}
+        c = _make_client(db, _mock_deepseek())
+        response = c.post(GENERATE_ENDPOINT, json=body)
+        assert response.status_code == 201
+        course_id = uuid.UUID(response.json()["course_id"])
+        course = db.query(CourseModel).filter(CourseModel.id == course_id).first()
+        assert str(course.owner_id) == DEMO_OWNER_ID
+
+    def test_missing_demo_user_returns_503(self, db):
+        """If the demo user row is absent, generate must return 503."""
+        # Explicitly delete the demo user to isolate this test from prior state
+        db.query(User).filter(User.id == uuid.UUID(DEMO_OWNER_ID)).delete()
+        db.flush()
+        c = _make_client(db, _mock_deepseek())
+        response = c.post(GENERATE_ENDPOINT, json=VALID_GENERATE_BODY)
+        assert response.status_code == 503
         assert "detail" in response.json()
 
     def test_deepseek_value_error_returns_422(self, db, demo_user):
@@ -469,17 +493,43 @@ class TestGenerateCourseErrors:
         response = c.post(GENERATE_ENDPOINT, json=body)
         assert response.status_code == 422
 
-    def test_missing_owner_id_returns_422(self, db):
-        body = {k: v for k, v in VALID_GENERATE_BODY.items() if k != "owner_id"}
-        c = _make_client(db, _mock_deepseek())
-        response = c.post(GENERATE_ENDPOINT, json=body)
-        assert response.status_code == 422
 
-    def test_invalid_owner_id_uuid_returns_422(self, db):
-        body = {**VALID_GENERATE_BODY, "owner_id": "not-a-uuid"}
-        c = _make_client(db, _mock_deepseek())
-        response = c.post(GENERATE_ENDPOINT, json=body)
-        assert response.status_code == 422
+# ─────────────────────────────────────────────────────────────────────────────
+# GET /api/courses — demo owner isolation
+# ─────────────────────────────────────────────────────────────────────────────
+
+class TestListCoursesOwnerFilter:
+    """GET /api/courses must return only courses owned by the demo user."""
+
+    def test_courses_from_other_owner_not_returned(self, db, demo_user):
+        """A course owned by a different user must not appear in the list."""
+        other_user = User(
+            id=uuid.uuid4(),
+            name="Other Prof",
+            email="other@example.com",
+            role="instructor",
+        )
+        db.add(other_user)
+        db.flush()
+
+        _make_course(db, demo_user, title="My Course")
+        _make_course(db, other_user, title="Their Course")
+
+        c = _make_client(db)
+        response = c.get(LIST_ENDPOINT)
+        assert response.status_code == 200
+        titles = [item["title"] for item in response.json()["courses"]]
+        assert "My Course" in titles
+        assert "Their Course" not in titles
+
+    def test_empty_when_no_demo_owner_courses(self, db):
+        """If no courses exist for the demo user, the list must be empty."""
+        # demo_user NOT inserted in this test — no fixture, no courses
+        c = _make_client(db)
+        response = c.get(LIST_ENDPOINT)
+        assert response.status_code == 200
+        assert response.json()["courses"] == []
+        assert response.json()["total"] == 0
 
 
 # ─────────────────────────────────────────────────────────────────────────────

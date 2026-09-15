@@ -5,14 +5,11 @@ import useGenerationStore from '../store/useGenerationStore.js';
 import { GENERATION_STAGES, ROUTES } from '../constants/index.js';
 import { generateCourse } from '../services/api/syllabusService.js';
 import { adaptCourse } from '../services/adapters/courseAdapter.js';
+import { extractSyllabusText } from '../utils/extractSyllabusText.js';
 import FileUploader from '../components/syllabus/FileUploader.jsx';
 import GenerationProgress from '../components/syllabus/GenerationProgress.jsx';
 import Button from '../components/common/Button.jsx';
 import PageHeader from '../components/layout/PageHeader.jsx';
-
-// Demo owner_id — replaced by real auth when auth exists.
-// Seed one row first: see docs/setup-guide.md § "Seed a demo user".
-const DEMO_OWNER_ID = import.meta.env.VITE_DEMO_OWNER_ID || '00000000-0000-0000-0000-000000000001';
 
 const STAGE_IDS = GENERATION_STAGES.map((s) => s.id);
 
@@ -47,6 +44,18 @@ export default function CreateCourse() {
     }
 
     try {
+      // ── Resolve the syllabus text ─────────────────────────────────────────
+      // Priority: typed/pasted text > uploaded file content.
+      // File extraction runs before the progress animation so any extraction
+      // error is surfaced immediately without entering the loading screen.
+      let syllabusText = store.syllabusText.trim();
+
+      if (!syllabusText && store.syllabusFile) {
+        // extractSyllabusText rejects with a descriptive Error for unsupported
+        // file types (PDF, DOC, DOCX) — that error surfaces via failGeneration.
+        syllabusText = await extractSyllabusText(store.syllabusFile);
+      }
+
       // Advance through UI stages while the single real call runs
       store.advanceStage('analyzing');
       await delay(300);
@@ -57,10 +66,10 @@ export default function CreateCourse() {
       store.advanceStage('organizing');
 
       // Real API call — POST /api/v1/courses/generate
+      // owner_id is assigned server-side; we do not send it.
       const courseData = await generateCourse({
         title: store.courseTitle,
-        syllabus_text: store.syllabusText,
-        owner_id: DEMO_OWNER_ID,
+        syllabus_text: syllabusText,
       });
 
       store.advanceStage('content');

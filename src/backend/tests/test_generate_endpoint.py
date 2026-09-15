@@ -221,15 +221,30 @@ class TestGenerateEndpoint:
     def teardown_method(self, _method):
         app.dependency_overrides.clear()
 
+    def _insert_demo_user(self, session: Session) -> None:
+        """Insert the demo user that the server now requires server-side."""
+        from backend.database.models import User
+        existing = session.query(User).filter(
+            User.id == uuid.UUID("00000000-0000-0000-0000-000000000001")
+        ).first()
+        if existing:
+            return
+        session.add(User(
+            id=uuid.UUID("00000000-0000-0000-0000-000000000001"),
+            name="Demo Professor",
+            email="demo@coursegenie.ai",
+            role="instructor",
+        ))
+        session.flush()
+
     def test_generate_returns_201_with_full_structure(self, db_session):
-        owner_id = _insert_user(db_session)
+        self._insert_demo_user(db_session)
         client = self._make_client(db_session, self._ds_ok())
         resp = client.post(
             "/api/v1/courses/generate",
             json={
                 "title": "Introduction to Python",
                 "syllabus_text": "Week 1: Python basics. Week 2: Data types and control flow. Week 3: Functions.",
-                "owner_id": owner_id,
             },
         )
         assert resp.status_code == 201, resp.text
@@ -244,14 +259,13 @@ class TestGenerateEndpoint:
     def test_generate_persists_to_database(self, db_session):
         from backend.database.models import Course, Module, Topic
 
-        owner_id = _insert_user(db_session)
+        self._insert_demo_user(db_session)
         client = self._make_client(db_session, self._ds_ok())
         resp = client.post(
             "/api/v1/courses/generate",
             json={
                 "title": "Python Course",
                 "syllabus_text": "Week 1: Python basics. Week 2: Data types and control flow. Week 3: Functions.",
-                "owner_id": owner_id,
             },
         )
         assert resp.status_code == 201, resp.text
@@ -275,7 +289,6 @@ class TestGenerateEndpoint:
             json={
                 "title": "Python Course",
                 "syllabus_text": "too short",
-                "owner_id": str(uuid.uuid4()),
             },
         )
         assert resp.status_code == 422
@@ -286,13 +299,12 @@ class TestGenerateEndpoint:
             "/api/v1/courses/generate",
             json={
                 "syllabus_text": "Week 1: Python basics. Week 2: Data types. Week 3: Functions and control flow.",
-                "owner_id": str(uuid.uuid4()),
             },
         )
         assert resp.status_code == 422
 
     def test_generate_returns_502_on_sdk_error(self, db_session):
-        owner_id = _insert_user(db_session)
+        self._insert_demo_user(db_session)
         ds = DeepSeekClient(settings=_fake_settings())
         mock_openai = MagicMock()
         mock_openai.chat.completions.create.side_effect = Exception("network timeout")
@@ -303,13 +315,12 @@ class TestGenerateEndpoint:
             json={
                 "title": "Python Course",
                 "syllabus_text": "Week 1: Python basics. Week 2: Data types. Week 3: Functions.",
-                "owner_id": owner_id,
             },
         )
         assert resp.status_code == 502
 
     def test_generate_returns_422_on_bad_model_json(self, db_session):
-        owner_id = _insert_user(db_session)
+        self._insert_demo_user(db_session)
         ds = DeepSeekClient(settings=_fake_settings())
         mock_message = MagicMock()
         mock_message.content = "this is not json"
@@ -326,7 +337,6 @@ class TestGenerateEndpoint:
             json={
                 "title": "Python Course",
                 "syllabus_text": "Week 1: Python basics. Week 2: Data types. Week 3: Functions.",
-                "owner_id": owner_id,
             },
         )
         assert resp.status_code == 422

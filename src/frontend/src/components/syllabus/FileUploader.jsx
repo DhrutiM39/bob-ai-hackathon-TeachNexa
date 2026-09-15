@@ -78,7 +78,7 @@ export default function FileUploader({ file, onChange, disabled }) {
           <span className={styles.uploadIcon} aria-hidden="true">↑</span>
           <p className={styles.primary}>Drag & drop your syllabus file</p>
           <p className={styles.secondary}>or <span className={styles.browse}>browse to upload</span></p>
-          <p className={styles.hint}>PDF, DOCX, or TXT · max {MAX_FILE_SIZE_MB} MB</p>
+          <p className={styles.hint}>TXT auto-extracted · PDF/DOC/DOCX: paste text instead · max {MAX_FILE_SIZE_MB} MB</p>
         </div>
       )}
       <input

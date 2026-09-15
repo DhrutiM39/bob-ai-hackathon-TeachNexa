@@ -2,7 +2,7 @@
 Course router — database-backed course endpoints.
 
 Routes implemented here:
-  GET  /api/courses                   → list all courses (with aggregate counts)
+  GET  /api/courses                   → list courses owned by the demo user
   GET  /api/courses/{course_id}       → full course detail (modules + topics)
   POST /api/v1/courses/generate       → generate course via AI + persist to DB
 
@@ -11,6 +11,9 @@ Design:
   - No SQL inside this file; all DB access goes through helper functions below.
   - DeepSeekClient is injected via Depends() so it can be swapped in tests.
   - All DB writes use a single transaction (via get_db's commit-on-yield).
+  - owner_id is derived server-side from DEMO_OWNER_ID — clients cannot
+    supply it.  This is a hackathon-MVP demo isolation mechanism, not full
+    per-user authentication.
 """
 
 from __future__ import annotations
@@ -40,6 +43,12 @@ from backend.database.session import get_db
 logger = logging.getLogger(__name__)
 
 router = APIRouter(tags=["courses"])
+
+# ── Demo owner ────────────────────────────────────────────────────────────────
+# Server-side constant — matches seed.py / VITE_DEMO_OWNER_ID.
+# Clients never send this value; the backend assigns it on every course create.
+# NOTE: Hackathon MVP.  Replace with get_current_user() when real auth is added.
+DEMO_OWNER_ID: uuid.UUID = uuid.UUID("00000000-0000-0000-0000-000000000001")
 
 
 # ─────────────────────────────────────────────────────────────────────────────
@@ -108,17 +117,20 @@ def _build_course_detail(db: Session, course: Course) -> CourseDetail:
     "/api/courses",
     response_model=CoursesListResponse,
     status_code=status.HTTP_200_OK,
-    summary="List all courses",
-    description="Returns all courses with aggregate module/topic counts. "
-                "Does NOT include the full module/topic tree.",
+    summary="List demo-owner courses",
+    description=(
+        "Returns courses owned by the demo user (hackathon MVP). "
+        "Does NOT include the full module/topic tree."
+    ),
 )
 def list_courses(db: Session = Depends(get_db)) -> CoursesListResponse:
-    """Return all courses ordered by creation date (newest first)."""
+    """Return courses owned by the demo user, newest first."""
     courses = (
         db.query(Course)
         .options(
             joinedload(Course.modules).joinedload(Module.topics)
         )
+        .filter(Course.owner_id == DEMO_OWNER_ID)
         .order_by(Course.created_at.desc())
         .all()
     )
@@ -209,10 +221,11 @@ def get_course(course_id: str, db: Session = Depends(get_db)) -> CourseDetail:
     description=(
         "Sends the provided syllabus to DeepSeek, which returns a "
         "structured hierarchy of modules and topics. The result is persisted "
-        "to the database and the full Course object is returned."
+        "to the database and the full Course object is returned. "
+        "Course ownership is assigned server-side to the demo user."
     ),
     responses={
-        400: {"description": "owner_id does not exist in the database."},
+        503: {"description": "Demo user not found — run startup seed first."},
         422: {"description": "DeepSeek returned an invalid response."},
         502: {"description": "AI service temporarily unavailable."},
     },
@@ -223,21 +236,22 @@ def generate_course(
     ds: DeepSeekClient = Depends(get_deepseek_client),
 ) -> GenerateCourseResponse:
     """
-    1. Verify the owner_id exists.
+    1. Resolve the server-side demo owner (never from the client).
     2. Call DeepSeek to parse the syllabus into modules/topics.
     3. Persist a Course row, then Module rows, then Topic rows (single transaction).
     4. Return the full hierarchy as a GenerateCourseResponse.
     """
     from backend.database.models import User
 
-    # ── 0. Verify owner exists (avoid FK violation mid-transaction) ───────
-    owner = db.query(User).filter(User.id == body.owner_id).first()
+    # ── 0. Resolve demo owner server-side (client cannot influence this) ──
+    owner = db.query(User).filter(User.id == DEMO_OWNER_ID).first()
     if owner is None:
         raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
+            status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
             detail=(
-                f"User '{body.owner_id}' not found. "
-                "Seed a demo user first — see docs/setup-guide.md."
+                "Demo user not found in database. "
+                "The application should seed it on startup automatically. "
+                "Run: python -m backend.app.seed"
             ),
         )
 
@@ -262,7 +276,7 @@ def generate_course(
         title=body.title,
         description=body.description,
         syllabus_text=body.syllabus_text,
-        owner_id=body.owner_id,
+        owner_id=DEMO_OWNER_ID,   # server-assigned, never from client
     )
     db.add(course)
     db.flush()  # get course.id before inserting children

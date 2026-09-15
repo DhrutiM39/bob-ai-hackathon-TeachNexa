@@ -805,19 +805,20 @@ class TestCourseStructureRepeatGenerate:
     def test_repeated_generate_creates_separate_courses(self, db):
         """Two identical generate calls must create two distinct Course rows."""
         from backend.app.services.deepseek_client import DeepSeekClient, get_deepseek_client
-        from backend.app.schemas.generate import GenerateCourseRequest
         from backend.database.models import User
         import uuid as _uuid
 
-        # Seed a user
-        user = User(
-            id=_uuid.uuid4(),
-            name="Prof",
-            email=f"prof2_{_uuid.uuid4().hex[:6]}@test.com",
-            role="instructor",
-        )
-        db.add(user)
-        db.flush()
+        # Seed the demo user (server now assigns ownership to it)
+        demo_uuid = _uuid.UUID("00000000-0000-0000-0000-000000000001")
+        existing = db.query(User).filter(User.id == demo_uuid).first()
+        if not existing:
+            db.add(User(
+                id=demo_uuid,
+                name="Demo Professor",
+                email="demo@coursegenie.ai",
+                role="instructor",
+            ))
+            db.flush()
 
         _MODULES = {
             "modules": [
@@ -855,7 +856,7 @@ class TestCourseStructureRepeatGenerate:
         payload = {
             "title": "Python 101",
             "syllabus_text": "Week 1: intro. Week 2: data types. Week 3: functions.",
-            "owner_id": str(user.id),
+            # owner_id intentionally absent — backend assigns server-side
         }
         r1 = client.post("/api/v1/courses/generate", json=payload)
         r2 = client.post("/api/v1/courses/generate", json=payload)
@@ -867,5 +868,5 @@ class TestCourseStructureRepeatGenerate:
 
         # Both courses must be independently queryable
         from backend.database.models import Course
-        courses = db.query(Course).filter(Course.owner_id == user.id).all()
+        courses = db.query(Course).filter(Course.owner_id == demo_uuid).all()
         assert len(courses) == 2

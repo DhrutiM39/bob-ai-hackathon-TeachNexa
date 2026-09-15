@@ -19,13 +19,13 @@ export async function analyzeSyllabus({ text, file }) {
 
 /**
  * POST /api/v1/courses/generate
- * Sends { title, syllabus_text, owner_id } and returns the full course hierarchy.
+ * Sends { title, syllabus_text } and returns the full course hierarchy.
+ * owner_id is assigned server-side — clients must not send it.
  */
-export async function generateCourse({ title, syllabus_text, owner_id }) {
+export async function generateCourse({ title, syllabus_text }) {
   const { data } = await client.post('/api/v1/courses/generate', {
     title,
     syllabus_text,
-    owner_id,
   });
   return data;
 }
